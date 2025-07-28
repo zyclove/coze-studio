@@ -13,6 +13,8 @@ MYSQL_SCHEMA := ./docker/volumes/mysql/schema.sql
 MYSQL_INIT_SQL := ./docker/volumes/mysql/sql_init.sql
 ENV_FILE := ./docker/.env
 STATIC_DIR := ./bin/resources/static
+ES_INDEX_SCHEMA := ./docker/volumes/elasticsearch/es_index_schema
+ES_SETUP_SCRIPT := ./docker/volumes/elasticsearch/setup_es.sh
 
 debug: env middleware python server
 
@@ -83,6 +85,10 @@ dump_sql_schema:
 atlas-hash:
 	@echo "Rehash atlas migration files..."
 	@(cd ./docker/atlas && atlas migrate hash)
+
+setup_es_index:
+	@echo "Setting up Elasticsearch index..."
+	@bash $(ES_SETUP_SCRIPT)  --index-dir $(ES_INDEX_SCHEMA) --docker-host false
 
 help:
 	@echo "Usage: make [target]"
