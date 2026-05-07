@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type MouseEvent } from 'react';
 
 import { useSize } from 'ahooks';
@@ -26,8 +26,9 @@ import {
 } from '@coze-arch/coze-design';
 import { responsiveTableColumn, formatDate } from '@coze-arch/bot-utils';
 import {
+  ResType,
+  WorkflowMode,
   type ResourceInfo,
-  type ResType,
 } from '@coze-arch/bot-api/plugin_develop';
 
 import { type LibraryEntityConfig } from '../types';
@@ -35,7 +36,7 @@ import { BaseLibraryItem } from '../components/base-library-item';
 
 const { Text } = Typography;
 
-// 预设表格cell最小宽度
+// Default table cell minimum width
 const NAME_COL_WIDTH = 260;
 const ACTIONS_COL_WIDTH = 60;
 const TYPE_COL_WIDTH = 100;
@@ -43,7 +44,7 @@ const CREATOR_COL_WIDTH = 231;
 const EDITED_TIME_COL_WIDTH = 150;
 
 const stopPro = (e: MouseEvent<HTMLDivElement>) => {
-  e.stopPropagation(); //阻止冒泡
+  e.stopPropagation(); //Stop bubbling
 };
 
 const getResTypeLabelFromConfigMap = (
@@ -53,6 +54,16 @@ const getResTypeLabelFromConfigMap = (
   if (item.res_type === undefined) {
     return '-';
   }
+
+  // 单独判断一下 Chatflow 类型
+  if (
+    item.res_type === ResType.Workflow &&
+    item.res_sub_type === WorkflowMode.ChatFlow
+  ) {
+    const label = I18n.t('wf_chatflow_76');
+    return label;
+  }
+
   const target = entityConfigs.find(config =>
     config.target.includes(item.res_type as ResType),
   )?.typeFilter;

@@ -26,40 +26,45 @@ import (
 
 	"github.com/google/uuid"
 
-	connectorModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/connector"
-	knowledgeModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
-	pluginModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/plugin"
-	intelligenceAPI "github.com/coze-dev/coze-studio/backend/api/model/intelligence"
-	"github.com/coze-dev/coze-studio/backend/api/model/intelligence/common"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/playground"
-	workflowAPI "github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/workflow"
-	projectAPI "github.com/coze-dev/coze-studio/backend/api/model/project"
-	"github.com/coze-dev/coze-studio/backend/api/model/project_memory"
-	publishAPI "github.com/coze-dev/coze-studio/backend/api/model/publish"
+	intelligenceAPI "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence"
+	"github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/common"
+	taskStruct "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/common"
+	projectAPI "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/project"
+	publishAPI "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/publish"
+	taskAPI "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/task"
+	"github.com/coze-dev/coze-studio/backend/api/model/data/database/table"
+	"github.com/coze-dev/coze-studio/backend/api/model/data/variable/project_memory"
+	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	resourceAPI "github.com/coze-dev/coze-studio/backend/api/model/resource"
 	resourceCommon "github.com/coze-dev/coze-studio/backend/api/model/resource/common"
-	"github.com/coze-dev/coze-studio/backend/api/model/table"
-	taskAPI "github.com/coze-dev/coze-studio/backend/api/model/task"
-	taskStruct "github.com/coze-dev/coze-studio/backend/api/model/task_struct"
+	workflowAPI "github.com/coze-dev/coze-studio/backend/api/model/workflow"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	"github.com/coze-dev/coze-studio/backend/application/knowledge"
 	"github.com/coze-dev/coze-studio/backend/application/memory"
 	"github.com/coze-dev/coze-studio/backend/application/plugin"
 	"github.com/coze-dev/coze-studio/backend/application/workflow"
+	"github.com/coze-dev/coze-studio/backend/bizpkg/config"
+	connectorModel "github.com/coze-dev/coze-studio/backend/crossdomain/connector/model"
+
+	knowledgeModel "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
+	pluginConsts "github.com/coze-dev/coze-studio/backend/crossdomain/plugin/consts"
 	"github.com/coze-dev/coze-studio/backend/domain/app/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/app/repository"
 	"github.com/coze-dev/coze-studio/backend/domain/app/service"
 	connector "github.com/coze-dev/coze-studio/backend/domain/connector/service"
 	variables "github.com/coze-dev/coze-studio/backend/domain/memory/variables/service"
+	"github.com/coze-dev/coze-studio/backend/domain/permission"
+	"github.com/coze-dev/coze-studio/backend/domain/plugin/dto"
 	searchEntity "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	search "github.com/coze-dev/coze-studio/backend/domain/search/service"
 	user "github.com/coze-dev/coze-studio/backend/domain/user/service"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/modelmgr"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/conv"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
+	"github.com/coze-dev/coze-studio/backend/pkg/lang/ternary"
 	"github.com/coze-dev/coze-studio/backend/pkg/logs"
+	"github.com/coze-dev/coze-studio/backend/pkg/safego"
 	"github.com/coze-dev/coze-studio/backend/pkg/taskgroup"
 	"github.com/coze-dev/coze-studio/backend/types/consts"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
@@ -73,7 +78,6 @@ type APPApplicationService struct {
 
 	oss             storage.Storage
 	projectEventBus search.ProjectEventBus
-	modelMgr        modelmgr.Manager
 
 	userSVC user.User
 
@@ -87,12 +91,12 @@ func (a *APPApplicationService) DraftProjectCreate(ctx context.Context, req *pro
 		return nil, errorx.New(errno.ErrAppPermissionCode, errorx.KV(errno.APPMsgKey, "session is required"))
 	}
 
-	respModel, err := a.modelMgr.ListInUseModel(ctx, 1, nil)
+	modelList, err := config.ModelConf().GetOnlineModelListWithLimit(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(respModel.ModelList) == 0 {
+	if len(modelList) == 0 {
 		return nil, errorx.New(errno.ErrAppNoModelInUseCode)
 	}
 
@@ -183,18 +187,19 @@ func (a *APPApplicationService) DraftProjectDelete(ctx context.Context, req *pro
 		logs.CtxErrorf(ctx, "publish project '%d' failed, err=%v", req.ProjectID, err)
 	}
 
-	err = a.deleteAPPResources(ctx, req.ProjectID)
-	if err != nil {
-		logs.CtxErrorf(ctx, "delete app '%d' resources failed, err=%v", req.ProjectID, err)
-	}
+	safego.Go(ctx, func() {
+		// When an app is deleted, resource deletion is currently handled as a weak dependency, meaning some resources might not be deleted, but they will be inaccessible to the user.
+		// TODO:: Application resources need to check the deletion status of the application
+		a.deleteAPPResources(ctx, req.ProjectID)
+	})
 
 	resp = &projectAPI.DraftProjectDeleteResponse{}
 
 	return resp, nil
 }
 
-func (a *APPApplicationService) deleteAPPResources(ctx context.Context, appID int64) (err error) {
-	err = plugin.PluginApplicationSVC.DeleteAPPAllPlugins(ctx, appID)
+func (a *APPApplicationService) deleteAPPResources(ctx context.Context, appID int64) {
+	err := plugin.PluginApplicationSVC.DeleteAPPAllPlugins(ctx, appID)
 	if err != nil {
 		logs.CtxErrorf(ctx, "delete app '%d' plugins failed, err=%v", appID, err)
 	}
@@ -218,8 +223,6 @@ func (a *APPApplicationService) deleteAPPResources(ctx context.Context, appID in
 	if err != nil {
 		logs.CtxErrorf(ctx, "delete app '%d' workflow failed, err=%v", appID, err)
 	}
-
-	return nil
 }
 
 func (a *APPApplicationService) DraftProjectUpdate(ctx context.Context, req *projectAPI.DraftProjectUpdateRequest) (resp *projectAPI.DraftProjectUpdateResponse, err error) {
@@ -303,6 +306,11 @@ func (a *APPApplicationService) getAPPPublishConnectorList(ctx context.Context, 
 			if err != nil {
 				return nil, err
 			}
+		case consts.WebSDKConnectorID:
+			info, err = a.packChatSDKConnectorInfo(ctx, c)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			logs.CtxWarnf(ctx, "unsupported connector id '%v'", c.ID)
 			continue
@@ -338,6 +346,22 @@ func (a *APPApplicationService) packAPIConnectorInfo(ctx context.Context, c *con
 	return info, nil
 }
 
+func (a *APPApplicationService) packChatSDKConnectorInfo(ctx context.Context, c *connectorModel.Connector) (*publishAPI.PublishConnectorInfo, error) {
+
+	info := &publishAPI.PublishConnectorInfo{
+		ID:                      c.ID,
+		BindType:                publishAPI.ConnectorBindType_WebSDKBind,
+		ConnectorClassification: publishAPI.ConnectorClassification_APIOrSDK,
+		BindInfo:                map[string]string{},
+		Name:                    c.Name,
+		IconURL:                 c.URL,
+		Description:             c.Desc,
+		AllowPublish:            true,
+	}
+
+	return info, nil
+}
+
 func (a *APPApplicationService) getLatestPublishRecord(ctx context.Context, appID int64) (info *publishAPI.LastPublishInfo, err error) {
 	record, exist, err := a.DomainSVC.GetAPPPublishRecord(ctx, &service.GetAPPPublishRecordRequest{
 		APPID:  appID,
@@ -367,7 +391,37 @@ func (a *APPApplicationService) getLatestPublishRecord(ctx context.Context, appI
 	return latestRecord, nil
 }
 
+func checkUserSpace(ctx context.Context, uid int64, spaceID int64) error {
+	// Use permission service to check workspace access
+	result, err := permission.DefaultSVC().CheckAuthz(ctx, &permission.CheckAuthzData{
+		ResourceIdentifier: []*permission.ResourceIdentifier{
+			{
+				Type:   permission.ResourceTypeWorkspace,
+				ID:     []int64{spaceID},
+				Action: permission.ActionRead,
+			},
+		},
+		OperatorID: uid,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check workspace permission: %w", err)
+	}
+
+	if result.Decision != permission.Allow {
+		return fmt.Errorf("user %d does not have access to space %d", uid, spaceID)
+	}
+
+	return nil
+}
+
 func (a *APPApplicationService) ReportUserBehavior(ctx context.Context, req *playground.ReportUserBehaviorRequest) (resp *playground.ReportUserBehaviorResponse, err error) {
+	uid := ctxutil.MustGetUIDFromCtx(ctx)
+
+	err = checkUserSpace(ctx, uid, req.GetSpaceID())
+	if err != nil {
+		return nil, err
+	}
+
 	err = a.projectEventBus.PublishProject(ctx, &searchEntity.ProjectDomainEvent{
 		OpType: searchEntity.Updated,
 		Project: &searchEntity.ProjectDocument{
@@ -768,22 +822,22 @@ func pluginCopyDispatchHandler(ctx context.Context, metaInfo *copyMetaInfo, res 
 	}
 }
 
-func copyPlugin(ctx context.Context, metaInfo *copyMetaInfo, res *entity.Resource) (resp *plugin.CopyPluginResponse, err error) {
-	var copyScene pluginModel.CopyScene
+func copyPlugin(ctx context.Context, metaInfo *copyMetaInfo, res *entity.Resource) (resp *dto.CopyPluginResponse, err error) {
+	var copyScene pluginConsts.CopyScene
 	switch metaInfo.scene {
 	case resourceCommon.ResourceCopyScene_CopyProjectResource:
-		copyScene = pluginModel.CopySceneOfDuplicate
+		copyScene = pluginConsts.CopySceneOfDuplicate
 	case resourceCommon.ResourceCopyScene_CopyResourceToLibrary:
-		copyScene = pluginModel.CopySceneOfToLibrary
+		copyScene = pluginConsts.CopySceneOfToLibrary
 	case resourceCommon.ResourceCopyScene_CopyResourceFromLibrary:
-		copyScene = pluginModel.CopySceneOfToAPP
+		copyScene = pluginConsts.CopySceneOfToAPP
 	case resourceCommon.ResourceCopyScene_CopyProject:
-		copyScene = pluginModel.CopySceneOfAPPDuplicate
+		copyScene = pluginConsts.CopySceneOfAPPDuplicate
 	default:
 		return nil, fmt.Errorf("unsupported copy scene '%s'", metaInfo.scene)
 	}
 
-	resp, err = plugin.PluginApplicationSVC.CopyPlugin(ctx, &plugin.CopyPluginRequest{
+	resp, err = plugin.PluginApplicationSVC.CopyPlugin(ctx, &dto.CopyPluginRequest{
 		CopyScene:   copyScene,
 		PluginID:    res.ResID,
 		UserID:      metaInfo.userID,
@@ -1014,7 +1068,7 @@ func (a *APPApplicationService) ResourceCopyDetail(ctx context.Context, req *res
 	}
 
 	if !exist {
-		return resp, nil // 默认返回处理中
+		return resp, nil // Default return processing
 	}
 
 	detail.Status = resourceCommon.TaskStatus(result.CopyStatus)
@@ -1087,6 +1141,91 @@ func (a *APPApplicationService) DraftProjectCopy(ctx context.Context, req *proje
 	}
 
 	return resp, nil
+}
+
+func (a *APPApplicationService) GetOnlineAppData(ctx context.Context, req *projectAPI.GetOnlineAppDataRequest) (resp *projectAPI.GetOnlineAppDataResponse, err error) {
+	uid := ctxutil.GetApiAuthFromCtx(ctx).UserID
+	record, exist, err := a.DomainSVC.GetAPPPublishRecord(ctx, &service.GetAPPPublishRecordRequest{
+		APPID:  req.GetAppID(),
+		Oldest: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if !exist {
+		return nil, errorx.Wrapf(err, "GetOnlineAppDataRequest failed, app id=%d, connector id=%v", req.GetAppID(), req.GetConnectorID())
+	}
+
+	if record.APP.OwnerID != uid {
+		return nil, errorx.New(errno.ErrAppPermissionCode, errorx.KV(errno.APPMsgKey, fmt.Sprintf("user %d does not have access to app %d", uid, req.GetAppID())))
+
+	}
+
+	valid := false
+	for _, v := range record.ConnectorPublishRecords {
+		if v.ConnectorID == req.GetConnectorID() {
+			valid = true
+			break
+		}
+	}
+
+	if !valid {
+		return nil, errorx.Wrapf(err, "GetOnlineAppDataRequest failed, invalid connector id, app id=%d, connector id=%v", req.GetAppID(), req.GetConnectorID())
+	}
+
+	app := record.APP
+
+	iconURL, err := a.oss.GetObjectUrl(ctx, app.GetIconURI())
+	if err != nil {
+		logs.CtxWarnf(ctx, "get icon url failed with '%s', err=%v", app.GetIconURI(), err)
+	}
+
+	varMeta, err := a.variablesSVC.GetProjectVariablesMeta(ctx, strconv.FormatInt(app.ID, 10), "")
+	if err != nil {
+		return nil, err
+	}
+	vars := make([]*common.Variable, 0, len(varMeta.Variables))
+	for _, v := range varMeta.Variables {
+		vars = append(vars, &common.Variable{
+			Keyword:      v.Keyword,
+			DefaultValue: v.DefaultValue,
+			Description:  v.Description,
+			Enable:       v.Enable,
+			VariableType: ternary.IFElse(v.VariableType == project_memory.VariableType_KVVariable, common.VariableTypeKVVariable, common.VariableTypeListVariable),
+			Channel: func() common.VariableChannel {
+				switch v.Channel {
+				case project_memory.VariableChannel_APP:
+					return common.VariableChannelAPP
+				case project_memory.VariableChannel_System:
+					return common.VariableChannelSystem
+				case project_memory.VariableChannel_Custom:
+					return common.VariableChannelCustom
+				case project_memory.VariableChannel_Feishu:
+					return common.VariableChannelFeishu
+				case project_memory.VariableChannel_Location:
+					return common.VariableChannelLocation
+				default:
+					return ""
+				}
+
+			}(),
+		})
+	}
+
+	response := &projectAPI.GetOnlineAppDataResponse{
+		Data: &projectAPI.AppData{
+			AppID:       strconv.FormatInt(record.APP.ID, 10),
+			Name:        *app.Name,
+			Description: *app.Desc,
+			Version:     *app.Version,
+			IconURL:     iconURL,
+			Variables:   vars,
+		},
+	}
+
+	return response, nil
+
 }
 
 func (a *APPApplicationService) duplicateDraftAPP(ctx context.Context, userID int64, req *projectAPI.DraftProjectCopyRequest) (newAppID int64, err error) {

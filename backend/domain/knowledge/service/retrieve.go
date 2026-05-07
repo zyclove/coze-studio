@@ -18,11 +18,9 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -31,25 +29,25 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"golang.org/x/sync/errgroup"
 
-	knowledgeModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
+	knowledgeModel "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/consts"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/convert"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/dal/model"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/chatmodel"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/nl2sql"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/rerank"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/searchstore"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/messages2query"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/rdb"
-	sqlparsercontract "github.com/coze-dev/coze-studio/backend/infra/contract/sqlparser"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/sqlparser"
+	"github.com/coze-dev/coze-studio/backend/infra/document"
+	"github.com/coze-dev/coze-studio/backend/infra/document/messages2query"
+	"github.com/coze-dev/coze-studio/backend/infra/document/nl2sql"
+	"github.com/coze-dev/coze-studio/backend/infra/document/rerank"
+	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore"
+	"github.com/coze-dev/coze-studio/backend/infra/rdb"
+	"github.com/coze-dev/coze-studio/backend/infra/sqlparser"
+	sqlparsercontract "github.com/coze-dev/coze-studio/backend/infra/sqlparser"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/sets"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
 	"github.com/coze-dev/coze-studio/backend/pkg/logs"
+	"github.com/coze-dev/coze-studio/backend/pkg/sonic"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
 
@@ -69,17 +67,17 @@ func (k *knowledgeSVC) Retrieve(ctx context.Context, request *RetrieveRequest) (
 	}
 	chain := compose.NewChain[*RetrieveContext, []*knowledgeModel.RetrieveSlice]()
 	rewriteNode := compose.InvokableLambda(k.queryRewriteNode)
-	// 向量化召回
+	// vectorized recall
 	vectorRetrieveNode := compose.InvokableLambda(k.vectorRetrieveNode)
-	// ES召回
+	// ES recall
 	EsRetrieveNode := compose.InvokableLambda(k.esRetrieveNode)
-	// Nl2Sql召回
+	// Nl2Sql recall
 	Nl2SqlRetrieveNode := compose.InvokableLambda(k.nl2SqlRetrieveNode)
 	// pass user query Node
 	passRequestContextNode := compose.InvokableLambda(k.passRequestContext)
 	// reRank Node
 	reRankNode := compose.InvokableLambda(k.reRankNode)
-	// pack Result接口
+	// Pack Result Interface
 	packResult := compose.InvokableLambda(k.packResults)
 	parallelNode := compose.NewParallel().
 		AddLambda("vectorRetrieveNode", vectorRetrieveNode).
@@ -127,6 +125,7 @@ func (k *knowledgeSVC) newRetrieveContext(ctx context.Context, req *RetrieveRequ
 			knowledgeInfoMap[kn.ID] = &KnowledgeInfo{}
 			knowledgeInfoMap[kn.ID].DocumentType = knowledgeModel.DocumentType(kn.FormatType)
 			knowledgeInfoMap[kn.ID].DocumentIDs = []int64{}
+			knowledgeInfoMap[kn.ID].KnowledgeName = kn.Name
 		}
 	}
 	for _, doc := range enableDocs {
@@ -140,15 +139,6 @@ func (k *knowledgeSVC) newRetrieveContext(ctx context.Context, req *RetrieveRequ
 		}
 	}
 
-	var cm chatmodel.BaseChatModel
-	if req.ChatModelProtocol != nil && req.ChatModelConfig != nil {
-		cm, err = k.modelFactory.CreateChatModel(ctx, ptr.From(req.ChatModelProtocol), req.ChatModelConfig)
-		if err != nil {
-			return nil, errorx.New(errno.ErrKnowledgeInvalidParamCode,
-				errorx.KV("msg", "invalid retriever chat model protocol or config"))
-		}
-	}
-
 	resp := RetrieveContext{
 		Ctx:              ctx,
 		OriginQuery:      req.Query,
@@ -157,7 +147,6 @@ func (k *knowledgeSVC) newRetrieveContext(ctx context.Context, req *RetrieveRequ
 		KnowledgeInfoMap: knowledgeInfoMap,
 		Strategy:         req.Strategy,
 		Documents:        enableDocs,
-		ChatModel:        cm,
 	}
 	return &resp, nil
 }
@@ -189,12 +178,12 @@ func (k *knowledgeSVC) prepareRAGDocuments(ctx context.Context, documentIDs []in
 }
 
 func (k *knowledgeSVC) queryRewriteNode(ctx context.Context, req *RetrieveContext) (newRetrieveContext *RetrieveContext, err error) {
-	if len(req.ChatHistory) == 0 {
-		// 没有上下文不需要改写
+	if len(req.ChatHistory) == 1 {
+		// No context, no rewriting.
 		return req, nil
 	}
 	if !req.Strategy.EnableQueryRewrite || k.rewriter == nil {
-		// 未开启rewrite功能，不需要上下文改写
+		// Rewrite function is not enabled, no context rewrite is required
 		return req, nil
 	}
 	var opts []messages2query.Option
@@ -206,7 +195,7 @@ func (k *knowledgeSVC) queryRewriteNode(ctx context.Context, req *RetrieveContex
 		logs.CtxErrorf(ctx, "rewrite query failed: %v", err)
 		return req, nil
 	}
-	// 改写完成
+	// Rewrite completed
 	req.RewrittenQuery = &rewrittenQuery
 	return req, nil
 }
@@ -373,7 +362,7 @@ func (k *knowledgeSVC) nl2SqlExec(ctx context.Context, doc *model.KnowledgeDocum
 		return nil, err
 	}
 	sql = addSliceIdColumn(sql)
-	// 执行sql
+	// Execute sql
 	replaceMap := map[string]sqlparsercontract.TableColumn{}
 	replaceMap[doc.Name] = sqlparsercontract.TableColumn{
 		NewTableName: ptr.Of(doc.TableInfo.PhysicalTableName),
@@ -390,12 +379,17 @@ func (k *knowledgeSVC) nl2SqlExec(ctx context.Context, doc *model.KnowledgeDocum
 		}
 		replaceMap[doc.Name].ColumnMap[doc.TableInfo.Columns[i].Name] = convert.ColumnIDToRDBField(doc.TableInfo.Columns[i].ID)
 	}
-	parsedSQL, err := sqlparser.NewSQLParser().ParseAndModifySQL(sql, replaceMap)
+	virtualColumnMap := map[string]*entity.TableColumn{}
+	for i := range doc.TableInfo.Columns {
+		virtualColumnMap[convert.ColumnIDToRDBField(doc.TableInfo.Columns[i].ID)] = doc.TableInfo.Columns[i]
+	}
+
+	parsedSQL, err := sqlparser.New().ParseAndModifySQL(sql, replaceMap)
 	if err != nil {
 		logs.CtxErrorf(ctx, "parse sql failed: %v", err)
 		return nil, err
 	}
-	// 执行sql
+	// Execute sql
 	resp, err := k.rdb.ExecuteSQL(ctx, &rdb.ExecuteSQLRequest{
 		SQL: parsedSQL,
 	})
@@ -404,15 +398,52 @@ func (k *knowledgeSVC) nl2SqlExec(ctx context.Context, doc *model.KnowledgeDocum
 		return nil, err
 	}
 	for i := range resp.ResultSet.Rows {
+		d := &schema.Document{
+			Content: "",
+			MetaData: map[string]any{
+				"document_id":    doc.ID,
+				"document_name":  doc.Name,
+				"knowledge_id":   doc.KnowledgeID,
+				"knowledge_name": retrieveCtx.KnowledgeInfoMap[doc.KnowledgeID].KnowledgeName,
+			},
+		}
 		id, ok := resp.ResultSet.Rows[i][consts.RDBFieldID].(int64)
 		if !ok {
-			logs.CtxWarnf(ctx, "convert id failed, row: %v", resp.ResultSet.Rows[i])
-			return nil, errors.New("convert id failed")
-		}
-		d := &schema.Document{
-			ID:       strconv.FormatInt(id, 10),
-			Content:  "",
-			MetaData: map[string]any{},
+			byteData, err := sonic.Marshal(resp.ResultSet.Rows)
+			if err != nil {
+				logs.CtxErrorf(ctx, "marshal sql resp failed: %v", err)
+				return nil, err
+			}
+			prefix := "sql:" + sql + ";result:"
+			d.Content = prefix + string(byteData)
+		} else {
+			transferMap := map[string]string{}
+			for cName, val := range resp.ResultSet.Rows[i] {
+				column, found := virtualColumnMap[cName]
+				if !found {
+					logs.CtxInfof(ctx, "column not found, name: %s", cName)
+					continue
+				}
+				columnData, err := convert.ParseAnyData(column, val)
+				if err != nil {
+					logs.CtxErrorf(ctx, "parse any data failed: %v", err)
+					return nil, errorx.New(errno.ErrKnowledgeColumnParseFailCode, errorx.KV("msg", err.Error()))
+				}
+				if columnData.Type == document.TableColumnTypeString {
+					columnData.ValString = ptr.Of(k.formatSliceContent(ctx, columnData.GetStringValue()))
+				}
+				if columnData.Type == document.TableColumnTypeImage {
+					columnData.ValImage = ptr.Of(k.formatSliceContent(ctx, columnData.GetStringValue()))
+				}
+				transferMap[column.Name] = columnData.GetNullableStringValue()
+			}
+			byteData, err := sonic.Marshal(transferMap)
+			if err != nil {
+				logs.CtxErrorf(ctx, "marshal sql resp failed: %v", err)
+				return nil, err
+			}
+			d.Content = string(byteData)
+			d.ID = strconv.FormatInt(id, 10)
 		}
 		d.WithScore(1)
 		retrieveResult = append(retrieveResult, d)
@@ -423,29 +454,13 @@ func (k *knowledgeSVC) nl2SqlExec(ctx context.Context, doc *model.KnowledgeDocum
 const pkID = "_knowledge_slice_id"
 
 func addSliceIdColumn(originalSql string) string {
-	lowerSql := strings.ToLower(originalSql)
-	selectIndex := strings.Index(lowerSql, "select ")
-	if selectIndex == -1 {
+	sql, err := sqlparser.New().AddSelectFieldsToSelectSQL(originalSql, []string{pkID})
+	if err != nil {
+		logs.Errorf("add slice id column failed: %v", err)
 		return originalSql
 	}
-	result := originalSql[:selectIndex+len("select ")] // 保留 select 部分
-	remainder := originalSql[selectIndex+len("select "):]
-
-	lowerRemainder := strings.ToLower(remainder)
-	fromIndex := strings.Index(lowerRemainder, " from")
-	if fromIndex == -1 {
-		return originalSql
-	}
-
-	columns := strings.TrimSpace(remainder[:fromIndex])
-	if columns != "*" {
-		columns += ", " + pkID
-	}
-
-	result += columns + remainder[fromIndex:]
-	return result
+	return sql
 }
-
 func packNL2SqlRequest(doc *model.KnowledgeDocument) *document.TableSchema {
 	res := &document.TableSchema{}
 	if doc.TableInfo == nil {
@@ -474,25 +489,25 @@ func (k *knowledgeSVC) passRequestContext(ctx context.Context, req *RetrieveCont
 }
 
 func (k *knowledgeSVC) reRankNode(ctx context.Context, resultMap map[string]any) (retrieveResult []*schema.Document, err error) {
-	// 首先获取下retrieve上下文
+	// First retrieve the context
 	retrieveCtx, ok := resultMap["passRequestContext"].(*RetrieveContext)
 	if !ok {
 		logs.CtxErrorf(ctx, "retrieve context is not found")
 		return nil, errorx.New(errno.ErrKnowledgeSystemCode, errorx.KV("msg", "retrieve context is not found"))
 	}
-	// 获取下向量化召回的接口
+	// Get the interface for the downvectorized recall
 	vectorRetrieveResult, ok := resultMap["vectorRetrieveNode"].([]*schema.Document)
 	if !ok {
 		logs.CtxErrorf(ctx, "vector retrieve result is not found")
 		vectorRetrieveResult = []*schema.Document{}
 	}
-	// 获取下es召回的接口
+	// Get the interface of the es recall.
 	esRetrieveResult, ok := resultMap["esRetrieveNode"].([]*schema.Document)
 	if !ok {
 		logs.CtxErrorf(ctx, "es retrieve result is not found")
 		esRetrieveResult = []*schema.Document{}
 	}
-	// 获取下nl2sql召回的接口
+	// Get the interface recalled under nl2sql
 	nl2SqlRetrieveResult, ok := resultMap["nl2SqlRetrieveNode"].([]*schema.Document)
 	if !ok {
 		logs.CtxErrorf(ctx, "nl2sql retrieve result is not found")
@@ -508,10 +523,10 @@ func (k *knowledgeSVC) reRankNode(ctx context.Context, resultMap map[string]any)
 		return data
 	}
 
-	// 根据召回策略从不同渠道获取召回结果
+	// Obtain recall results from different channels according to the recall strategy
 	var retrieveResultArr [][]*rerank.Data
 	if retrieveCtx.Strategy.EnableNL2SQL {
-		// nl2sql结果
+		// Nl2sql results
 		retrieveResultArr = append(retrieveResultArr, docs2RerankData(nl2SqlRetrieveResult))
 	}
 	switch retrieveCtx.Strategy.SearchType {
@@ -561,18 +576,39 @@ func (k *knowledgeSVC) packResults(ctx context.Context, retrieveResult []*schema
 	sliceIDs := make(sets.Set[int64])
 	docIDs := make(sets.Set[int64])
 	knowledgeIDs := make(sets.Set[int64])
-
+	results = []*knowledgeModel.RetrieveSlice{}
 	documentMap := map[int64]*model.KnowledgeDocument{}
 	knowledgeMap := map[int64]*model.Knowledge{}
 	sliceScoreMap := map[int64]float64{}
 	for _, doc := range retrieveResult {
-		id, err := strconv.ParseInt(doc.ID, 10, 64)
-		if err != nil {
-			logs.CtxErrorf(ctx, "convert id failed: %v", err)
-			return nil, errorx.New(errno.ErrKnowledgeSystemCode, errorx.KV("msg", "convert id failed"))
+		if len(doc.ID) == 0 {
+			results = append(results, &knowledgeModel.RetrieveSlice{
+				Slice: &knowledgeModel.Slice{
+					KnowledgeID:  doc.MetaData["knowledge_id"].(int64),
+					DocumentID:   doc.MetaData["document_id"].(int64),
+					DocumentName: doc.MetaData["document_name"].(string),
+					RawContent: []*knowledgeModel.SliceContent{
+						{
+							Type: knowledgeModel.SliceContentTypeText,
+							Text: ptr.Of(doc.Content),
+						},
+					},
+					Extra: map[string]string{
+						consts.KnowledgeName: doc.MetaData["knowledge_name"].(string),
+						consts.DocumentURL:   "",
+					},
+				},
+				Score: 1,
+			})
+		} else {
+			id, err := strconv.ParseInt(doc.ID, 10, 64)
+			if err != nil {
+				logs.CtxErrorf(ctx, "convert id failed: %v", err)
+				return nil, errorx.New(errno.ErrKnowledgeSystemCode, errorx.KV("msg", "convert id failed"))
+			}
+			sliceIDs[id] = struct{}{}
+			sliceScoreMap[id] = doc.Score()
 		}
-		sliceIDs[id] = struct{}{}
-		sliceScoreMap[id] = doc.Score()
 	}
 	slices, err := k.sliceRepo.MGetSlices(ctx, sliceIDs.ToSlice())
 	if err != nil {
@@ -625,7 +661,6 @@ func (k *knowledgeSVC) packResults(ctx context.Context, retrieveResult []*schema
 			return nil, err
 		}
 	}
-	results = []*knowledgeModel.RetrieveSlice{}
 	for i := range slices {
 		doc := documentMap[slices[i].DocumentID]
 		kn := knowledgeMap[slices[i].KnowledgeID]
@@ -739,18 +774,18 @@ func (i *ImageContent) SetKV(k string, v string) {
 func (k *knowledgeSVC) ParseFrontEndImageContent(ctx context.Context, s string) []*ImageContent {
 	res := make([]*ImageContent, 0)
 	imgRe := regexp.MustCompile(`<img\s+[^>]*>`)
-	// 查找所有匹配项
+	// Find all matches
 	matches := imgRe.FindAllSubmatchIndex([]byte(s), -1)
-	// 遍历匹配项并输出src和data-tos-key字段
-	// 遍历每个匹配项的索引
+	// Traverse matches and output the src and data-tos-key fields
+	// Iterate the index of each match
 	for _, match := range matches {
-		// 输出每个匹配项整个正则在文本中的开始和结束位置
+		// Outputs the beginning and end positions of the entire regular for each match in the text
 		matchStart := match[0]
 		matchEnd := match[1]
 		all := s[match[0]:match[1]]
 
 		re := regexp.MustCompile(`<img\s+([^>]+)>`)
-		// 初始化map存储kv信息，把多余信息去掉
+		// Initialize map to store kv information and remove redundant information
 		m := make(map[string]string)
 		l := make([]string, 0)
 		match := re.FindStringSubmatch(all)
@@ -758,13 +793,13 @@ func (k *knowledgeSVC) ParseFrontEndImageContent(ctx context.Context, s string) 
 			continue
 		}
 		attributes := match[1]
-		// 定义正则表达式模式，用于提取属性键值对
+		// Defines a regular expression pattern for extracting attribute key-value pairs
 		attrRe := regexp.MustCompile(`(\S+)=(?:"([^"]*)"|'([^']*)')`)
 
-		// 查找所有属性键值对
+		// Find all attribute key-value pairs
 		attrMatches := attrRe.FindAllStringSubmatch(attributes, -1)
 
-		// 提取并存储kv信息
+		// Extract and store kv information
 		for _, attrMatch := range attrMatches {
 			key := attrMatch[1]
 			value := attrMatch[2]

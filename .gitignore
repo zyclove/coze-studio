@@ -6,6 +6,8 @@
 *.dylib
 
 .env
+.env.debug
+.env.oceanbase
 
 # Test binary, built with `go test -c`
 *.test
@@ -32,7 +34,8 @@ output/*
 *.swp
 
 # Vscode files
-.vscode
+.vscode/settings.json
+.vscode/launch.json
 
 /patches
 /oldimpl
@@ -52,3 +55,8 @@ common/temp
 
 
 backend/conf/model/*.yaml
+values-dev.yaml
+**/conf/model_ark_doubao-seed-1.6.yaml
+
+*.tsbuildinfo
+.trae/*

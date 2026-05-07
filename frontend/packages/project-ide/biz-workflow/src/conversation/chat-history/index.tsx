@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import React, { Suspense, lazy, useMemo } from 'react';
 
 import { userStoreService } from '@coze-studio/user-store';
+import type { IProject } from '@coze-studio/open-chat';
+import { useIDEGlobalStore } from '@coze-project-ide/framework';
 import { I18n } from '@coze-arch/i18n';
 import { IconCozIllusAdd } from '@coze-arch/coze-design/illustrations';
 import { EmptyState } from '@coze-arch/coze-design';
 import { CreateEnv } from '@coze-arch/bot-api/workflow_api';
-import type { IProject } from '@coze-studio/open-chat';
-import { useIDEGlobalStore } from '@coze-project-ide/framework';
 
 import { DISABLED_CONVERSATION } from '../constants';
 import { useSkeleton } from './use-skeleton';
@@ -34,19 +34,19 @@ const LazyBuilderChat = lazy(async () => {
 
 export interface ChatHistoryProps {
   /**
-   * 会话 id
+   * session id
    */
   conversationId?: string;
   /**
-   * 会话名称
+   * session name
    */
   conversationName: string;
   /**
-   * 渠道 id
+   * Channel ID
    */
   connectorId: string;
   /**
-   * 创建会话的环境
+   * Create a conversation environment
    */
   createEnv: CreateEnv;
 }
@@ -81,8 +81,8 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
 
   const chatUserInfo = {
     id: userInfo?.user_id_str || '',
-    name: userInfo?.name || '',
-    avatar: userInfo?.avatar_url || '',
+    nickname: userInfo?.name || '',
+    url: userInfo?.avatar_url || '',
   };
 
   if (
@@ -106,7 +106,7 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({
         workflow={{}}
         project={innerProjectInfo}
         areaUi={{
-          // 只看会话记录，不可操作
+          // Only look at the session record, not operate
           isDisabled: true,
           isNeedClearContext: false,
           input: {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 export { OfficialLabel } from './official-label';
 
 export { InfiniteList } from './infinite-list';
@@ -39,3 +39,5 @@ export {
   PluginCardSkeleton,
   type PluginCardProps,
 } from './card/plugin';
+export { SearchInput } from './search-input';
+export { useUsageModal } from './usage-invoke/use-usage-modal';

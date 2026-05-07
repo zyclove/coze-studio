@@ -13,7 +13,7 @@
   "repository": {},
   "eventHooks": {
     "preRushInstall": [],
-    "postRushInstall": [],
+    "postRushInstall": ["scripts/hooks/post-rush-install.sh"],
     "preRushBuild": [],
     "postRushBuild": []
   },
@@ -1000,6 +1000,11 @@
     {
       "packageName": "@coze-studio/open-chat",
       "projectFolder": "frontend/packages/studio/open-platform/open-chat",
+      "tags": ["level-3"]
+    },
+    {
+      "packageName": "@coze-studio/chat-app-sdk",
+      "projectFolder": "frontend/packages/studio/open-platform/chat-app-sdk",
       "tags": ["level-3"]
     },
     {

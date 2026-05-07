@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { StandardNodeType } from '@coze-workflow/base';
 
-// 默认所有节点可用，可以自定义
+// All nodes are available by default and can be customized.
 export const getEnabledNodeTypes = (_params: {
   loopSelected: boolean;
   isProject: boolean;
@@ -46,9 +46,9 @@ export const getEnabledNodeTypes = (_params: {
     [StandardNodeType.Input]: true,
     [StandardNodeType.Comment]: true,
     [StandardNodeType.VariableMerge]: true,
-    // [StandardNodeType.QueryMessageList]: true,
-    // [StandardNodeType.ClearContext]: true,
-    // [StandardNodeType.CreateConversation]: true,
+    [StandardNodeType.QueryMessageList]: true,
+    [StandardNodeType.ClearContext]: true,
+    [StandardNodeType.CreateConversation]: true,
     [StandardNodeType.VariableAssign]: true,
     [StandardNodeType.Http]: true,
     [StandardNodeType.DatabaseUpdate]: true,
@@ -56,14 +56,14 @@ export const getEnabledNodeTypes = (_params: {
     [StandardNodeType.DatabaseDelete]: true,
     [StandardNodeType.DatabaseCreate]: true,
     // [StandardNodeType.JsonParser]: true,
-    // [StandardNodeType.JsonStringify]: true,
-    // [StandardNodeType.UpdateConversation]: true,
-    // [StandardNodeType.DeleteConversation]: true,
-    // [StandardNodeType.QueryConversationList]: true,
-    // [StandardNodeType.QueryConversationHistory]: true,
-    // [StandardNodeType.CreateMessage]: true,
-    // [StandardNodeType.UpdateMessage]: true,
-    // [StandardNodeType.DeleteMessage]: true,
+    [StandardNodeType.JsonStringify]: true,
+    [StandardNodeType.UpdateConversation]: true,
+    [StandardNodeType.DeleteConversation]: true,
+    [StandardNodeType.QueryConversationList]: true,
+    [StandardNodeType.QueryConversationHistory]: true,
+    [StandardNodeType.CreateMessage]: true,
+    [StandardNodeType.UpdateMessage]: true,
+    [StandardNodeType.DeleteMessage]: true,
   };
   const enabledNodeTypes: StandardNodeType[] = Object.keys(nodesMap)
     .filter(key => nodesMap[key])

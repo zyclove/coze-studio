@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type PropsWithChildren, createContext } from 'react';
 
 import { merge } from 'lodash-es';
@@ -26,6 +26,7 @@ const getDefaultCopywriting = (): CopywritingContextInterface => ({
   textareaBottomTips: '',
   clearContextDividerText: '',
   clearContextTooltipContent: '',
+  audioButtonTooltipContent: '',
 });
 
 export const CopywritingContext = createContext<CopywritingContextInterface>(

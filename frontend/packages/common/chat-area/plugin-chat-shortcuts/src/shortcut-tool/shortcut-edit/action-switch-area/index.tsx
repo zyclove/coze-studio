@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import React, {
   type FC,
   forwardRef,
@@ -111,12 +111,13 @@ export const ActionSwitchArea = forwardRef<
       tool_name,
       work_flow_id,
       tool_params_list = [],
+      plugin_from,
     } = toolInfo || {};
     const newComponents = initComponentsByToolParams(tool_params_list);
-    // TODO: hzf, 有点复杂,看看可以initValue么
+    // TODO: hzf, it's a bit complicated, let's see if it can initValue
     formRef.current?.formApi.setValue('components_list', newComponents);
     setComponents(newComponents);
-    // 只有这种情况需要手动更新数据
+    // Only in this case do you need to manually update the data
     componentsRef.current?.formApi?.setValues(newComponents);
 
     formRef.current?.formApi.setValue('tool_type', tool_type);
@@ -125,6 +126,7 @@ export const ActionSwitchArea = forwardRef<
       formRef.current?.formApi.setValue('work_flow_id', work_flow_id);
     formRef.current?.formApi.setValue('plugin_api_name', plugin_api_name);
     formRef.current?.formApi.setValue('plugin_api_id', api_id);
+    formRef.current?.formApi.setValue('plugin_from', plugin_from);
     formRef.current?.formApi.setValue('tool_info', {
       tool_name,
       tool_params_list,

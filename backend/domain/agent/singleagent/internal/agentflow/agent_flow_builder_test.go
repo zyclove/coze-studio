@@ -25,28 +25,6 @@ import (
 )
 
 func TestBuildAgent(t *testing.T) {
-	// TODO: fix me later
-	// 	ctx := context.Background()
-	// 	ctrl := gomock.NewController(t)
-	// 	modelMgr := agentMock.NewMockModelMgr(ctrl)
-	// 	modelMgr.EXPECT().MGetModelByID(gomock.Any(), gomock.Any()).Return(
-	// 		[]*modelMgrEntity.Model{{
-	// 			ID: 888,
-	// 			Meta: modelMgrEntity.ModelMeta{
-	// 				Protocol: chatmodel.ProtocolArk,
-	// 				ConnConfig: &chatmodel.Config{
-	// 					Model:  "ep-20250116140937-fhwc2",
-	// 					APIKey: "01945a34-8497-471d-821c-3695cbe2e4ba",
-	// 				},
-	// 			},
-	// 		}}, nil).AnyTimes()
-
-	// 	// mc := &ark.ChatModelConfig{
-	// 	// 	Model:  "ep-20250116140937-fhwc2",
-	// 	// 	APIKey: "01945a34-8497-471d-821c-3695cbe2e4ba",
-	// 	// }
-	// 	// arkModel, err := ark.NewChatModel(ctx, mc)
-	// 	// assert.NoError(t, err)
 
 	// 	sr, sw := schema.Pipe[*schema.Message](2)
 	// 	sw.Send(schema.AssistantMessage("to be great", nil), nil)
@@ -70,7 +48,7 @@ func TestBuildAgent(t *testing.T) {
 	// 					PluginID: 999,
 	// 					Operation: &pluginEntity.Openapi3Operation{
 	// 						OperationID: "get_user_salary",
-	// 						Summary:     "了解用户的月收入情况",
+	// 						Summary: "Understand the monthly income of users",
 	// 						Parameters: openapi3.Parameters{
 	// 							{
 	// 								Value: &openapi3.Parameter{
@@ -126,7 +104,7 @@ func TestBuildAgent(t *testing.T) {
 	// 							RawContent: []*knowledgeEntity.SliceContent{
 	// 								{
 	// 									Type: knowledgeEntity.SliceContentTypeText,
-	// 									Text: ptr.Of("learn computer science, become software developer, 月薪 2W 左右"),
+	// 									Text: ptr. Of ("learn computer science, become software developer, monthly salary is about 2W"),
 	// 								},
 	// 							},
 	// 						},
@@ -168,7 +146,7 @@ func TestBuildAgent(t *testing.T) {
 	// 				KnowledgeInfo: []*bot_common.KnowledgeInfo{
 	// 					{
 	// 						Id:   ptr.Of("777"),
-	// 						Name: ptr.Of("赚钱指南：根据你的个人兴趣、个人条件规划职业发展路径，达成所需的赚钱目标"),
+	// 						Name: ptr. Of ("Making Money Guide: Plan a career development path according to your personal interests and personal conditions to achieve the desired earning goals"),
 	// 					},
 	// 				},
 	// 			},

@@ -106,6 +106,12 @@ table "agent_tool_draft" {
     type    = json
     comment = "Tool Openapi Operation Schema"
   }
+  column "source" {
+    null    = false
+    type    = tinyint
+    default = 0
+    comment = "tool source 1 coze saas 0 default"
+  }
   primary_key {
     columns = [column.id]
   }
@@ -197,6 +203,12 @@ table "agent_tool_version" {
     unsigned = true
     comment  = "Create Time in Milliseconds"
   }
+  column "source" {
+    null    = false
+    type    = tinyint
+    default = 0
+    comment = "tool source 1 coze saas 0 default"
+  }
   primary_key {
     columns = [column.id]
   }
@@ -275,6 +287,12 @@ table "api_key" {
     default = 0
     comment = "Used Time in Milliseconds"
   }
+  column "ak_type" {
+    null    = false
+    type    = tinyint
+    default = 0
+    comment = "api key type "
+  }
   primary_key {
     columns = [column.id]
   }
@@ -333,6 +351,124 @@ table "app_connector_release_ref" {
   index "uniq_record_connector" {
     unique  = true
     columns = [column.record_id, column.connector_id]
+  }
+}
+table "app_conversation_template_draft" {
+  schema  = schema.opencoze
+  comment = "app_conversation_template_draft"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "app_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "app id"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "space id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(256)
+    comment = "conversation name"
+  }
+  column "template_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "template id"
+  }
+  column "creator_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "creator id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  column "updated_at" {
+    null     = true
+    type     = bigint
+    unsigned = true
+    comment  = "update time in millisecond"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "delete time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_space_id_app_id_template_id" {
+    columns = [column.space_id, column.app_id, column.template_id]
+  }
+}
+table "app_conversation_template_online" {
+  schema  = schema.opencoze
+  comment = "app_conversation_template_online"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "app_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "app id"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "space id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(256)
+    comment = "conversation name"
+  }
+  column "template_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "template id"
+  }
+  column "version" {
+    null    = false
+    type    = varchar(256)
+    comment = "version name"
+  }
+  column "creator_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "creator id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_space_id_app_id_template_id_version" {
+    columns = [column.space_id, column.app_id, column.template_id, column.version]
   }
 }
 table "app_draft" {
@@ -397,6 +533,124 @@ table "app_draft" {
   }
   primary_key {
     columns = [column.id]
+  }
+}
+table "app_dynamic_conversation_draft" {
+  schema  = schema.opencoze
+  comment = "app_dynamic_conversation_draft"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "app_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "app id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(256)
+    comment = "conversation name"
+  }
+  column "user_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "user id"
+  }
+  column "connector_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "connector id"
+  }
+  column "conversation_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "conversation id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "delete time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_app_id_connector_id_user_id" {
+    columns = [column.app_id, column.connector_id, column.user_id]
+  }
+  index "idx_connector_id_user_id_name" {
+    columns = [column.connector_id, column.user_id, column.name]
+  }
+}
+table "app_dynamic_conversation_online" {
+  schema  = schema.opencoze
+  comment = "app_dynamic_conversation_online"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "app_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "app id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(256)
+    comment = "conversation name"
+  }
+  column "user_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "user id"
+  }
+  column "connector_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "connector id"
+  }
+  column "conversation_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "conversation id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "delete time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_app_id_connector_id_user_id" {
+    columns = [column.app_id, column.connector_id, column.user_id]
+  }
+  index "idx_connector_id_user_id_name" {
+    columns = [column.connector_id, column.user_id, column.name]
   }
 }
 table "app_release_record" {
@@ -506,8 +760,205 @@ table "app_release_record" {
     columns = [column.app_id, column.version]
   }
 }
+table "app_static_conversation_draft" {
+  schema  = schema.opencoze
+  comment = "app_static_conversation_draft"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "template_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "template id"
+  }
+  column "user_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "user id"
+  }
+  column "connector_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "connector id"
+  }
+  column "conversation_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "conversation id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "delete time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_connector_id_user_id_template_id" {
+    columns = [column.connector_id, column.user_id, column.template_id]
+  }
+}
+table "app_static_conversation_online" {
+  schema  = schema.opencoze
+  comment = "app_static_conversation_online"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "template_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "template id"
+  }
+  column "user_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "user id"
+  }
+  column "connector_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "connector id"
+  }
+  column "conversation_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "conversation id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_connector_id_user_id_template_id" {
+    columns = [column.connector_id, column.user_id, column.template_id]
+  }
+}
+table "chat_flow_role_config" {
+  schema  = schema.opencoze
+  comment = "chat_flow_role_config"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "workflow_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "workflow id"
+  }
+  column "connector_id" {
+    null     = true
+    type     = bigint
+    unsigned = true
+    comment  = "connector id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(256)
+    comment = "role name"
+  }
+  column "description" {
+    null    = true
+    type    = mediumtext
+    comment = "role description"
+  }
+  column "version" {
+    null    = true
+    type    = varchar(256)
+    comment = "version"
+  }
+  column "avatar" {
+    null    = false
+    type    = varchar(256)
+    comment = "avatar uri"
+  }
+  column "background_image_info" {
+    null    = true
+    type    = mediumtext
+    comment = "background image information, object structure"
+  }
+  column "onboarding_info" {
+    null    = true
+    type    = mediumtext
+    comment = "intro information, object structure"
+  }
+  column "suggest_reply_info" {
+    null    = true
+    type    = mediumtext
+    comment = "user suggestions, object structure"
+  }
+  column "audio_config" {
+    null    = true
+    type    = mediumtext
+    comment = "agent audio config, object structure"
+  }
+  column "user_input_config" {
+    null    = false
+    type    = varchar(256)
+    comment = "user input config, object structure"
+  }
+  column "creator_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "creator id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "create time in millisecond"
+  }
+  column "updated_at" {
+    null     = true
+    type     = bigint
+    unsigned = true
+    comment  = "update time in millisecond"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "delete time in millisecond"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_connector_id_version" {
+    columns = [column.connector_id, column.version]
+  }
+  index "idx_workflow_id_version" {
+    columns = [column.workflow_id, column.version]
+  }
+}
 table "connector_workflow_version" {
-  schema = schema.opencoze
+  schema  = schema.opencoze
+  comment = "connector workflow version"
   column "id" {
     null           = false
     type           = bigint
@@ -550,19 +1001,19 @@ table "connector_workflow_version" {
   index "idx_connector_id_workflow_id_create_at" {
     columns = [column.connector_id, column.workflow_id, column.created_at]
   }
-  index "idx_connector_id_workflow_id_version" {
+  index "uniq_connector_id_workflow_id_version" {
     unique  = true
     columns = [column.connector_id, column.workflow_id, column.version]
   }
 }
 table "conversation" {
   schema  = schema.opencoze
-  comment = "会话信息表"
+  comment = "conversation info record"
   column "id" {
     null           = false
     type           = bigint
     unsigned       = true
-    comment        = "主键ID"
+    comment        = "id"
     auto_increment = true
   }
   column "connector_id" {
@@ -570,7 +1021,7 @@ table "conversation" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "业务线 ID"
+    comment  = "Publish Connector ID"
   }
   column "agent_id" {
     null    = false
@@ -582,26 +1033,26 @@ table "conversation" {
     null    = false
     type    = tinyint
     default = 0
-    comment = "会话场景"
+    comment = "conversation scene"
   }
   column "section_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "最新section_id"
+    comment  = "section_id"
   }
   column "creator_id" {
     null     = true
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建者id"
+    comment  = "creator_id"
   }
   column "ext" {
     null    = true
     type    = text
-    comment = "扩展字段"
+    comment = "ext"
   }
   column "status" {
     null    = false
@@ -614,14 +1065,26 @@ table "conversation" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建时间"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "更新时间"
+    comment  = "Update Time in Milliseconds"
+  }
+  column "name" {
+    null    = true
+    type    = varchar(255)
+    default = ""
+    comment = "conversation name"
+  }
+  column "user_id" {
+    null    = false
+    type    = varchar(255)
+    default = ""
+    comment = "user id with runtime"
   }
   primary_key {
     columns = [column.id]
@@ -632,104 +1095,104 @@ table "conversation" {
 }
 table "data_copy_task" {
   schema  = schema.opencoze
-  comment = "data方向复制任务记录表"
+  comment = "data copy task record"
   collate = "utf8mb4_general_ci"
   column "master_task_id" {
-    null    = false
+    null    = true
     type    = varchar(128)
     default = ""
-    comment = "复制任务ID"
+    comment = "task id"
   }
   column "origin_data_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "源id"
+    comment  = "origin data id"
   }
   column "target_data_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "目标id"
+    comment  = "target data id"
   }
   column "origin_space_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "源团队空间"
+    comment  = "origin space id"
   }
   column "target_space_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "目标团队空间"
+    comment  = "target space id"
   }
   column "origin_user_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "源用户ID"
+    comment  = "origin user id"
   }
   column "target_user_id" {
-    null     = false
+    null     = true
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "目标用户ID"
+    comment  = "target user id"
   }
   column "origin_app_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "源AppID"
+    comment  = "origin app id"
   }
   column "target_app_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "目标AppID"
+    comment  = "target app id"
   }
   column "data_type" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "数据类型 1:knowledge, 2:database"
+    comment  = "data type 1:knowledge, 2:database"
   }
   column "ext_info" {
     null    = false
     type    = varchar(255)
     default = ""
-    comment = "存储额外信息"
+    comment = "ext"
   }
   column "start_time" {
-    null    = false
+    null    = true
     type    = bigint
     default = 0
-    comment = "任务开始时间"
+    comment = "task start time"
   }
   column "finish_time" {
     null    = true
     type    = bigint
-    comment = "任务结束时间"
+    comment = "task finish time"
   }
   column "status" {
     null    = false
     type    = tinyint
     default = 1
-    comment = "1:创建 2:执行中 3:成功 4:失败"
+    comment = "1: Create 2: Running 3: Success 4: Failure"
   }
   column "error_msg" {
     null    = true
     type    = varchar(128)
-    comment = "错误信息"
+    comment = "error msg"
   }
   column "id" {
     null           = false
@@ -849,40 +1312,73 @@ table "draft_database_info" {
     columns = [column.space_id, column.app_id, column.creator_id, column.deleted_at]
   }
 }
-table "knowledge" {
+table "files" {
   schema  = schema.opencoze
-  comment = "知识库表"
+  comment = "file resource table"
+  collate = "utf8mb4_general_ci"
   column "id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "name" {
     null    = false
-    type    = varchar(150)
+    type    = varchar(255)
     default = ""
-    comment = "名称"
+    comment = "file name"
   }
-  column "app_id" {
+  column "file_size" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "file size"
+  }
+  column "tos_uri" {
     null    = false
-    type    = bigint
-    default = 0
-    comment = "项目ID，标识该资源是否是项目独有"
+    type    = varchar(1024)
+    default = ""
+    comment = "TOS URI"
+  }
+  column "status" {
+    null     = false
+    type     = tinyint
+    default  = 0
+    unsigned = true
+    comment  = "status，0invalid，1valid"
+  }
+  column "comment" {
+    null    = false
+    type    = varchar(1024)
+    default = ""
+    comment = "file comment"
+  }
+  column "source" {
+    null     = false
+    type     = tinyint
+    default  = 0
+    unsigned = true
+    comment  = "source：1 from API,"
   }
   column "creator_id" {
-    null     = false
-    type     = bigint
-    default  = 0
-    unsigned = true
-    comment  = "ID"
+    null    = false
+    type    = varchar(512)
+    default = ""
+    comment = "creator id"
   }
-  column "space_id" {
+  column "content_type" {
+    null    = false
+    type    = varchar(255)
+    default = ""
+    comment = "content type"
+  }
+  column "coze_account_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "空间ID"
+    comment  = "coze account id"
   }
   column "created_at" {
     null     = false
@@ -901,29 +1397,90 @@ table "knowledge" {
   column "deleted_at" {
     null    = true
     type    = datetime(3)
-    comment = "Delete Time in Milliseconds"
+    comment = "Delete Time"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_creator_id" {
+    columns = [column.creator_id]
+  }
+}
+table "knowledge" {
+  schema  = schema.opencoze
+  comment = "knowledge tabke"
+  column "id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "id"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(150)
+    default = ""
+    comment = "knowledge_s name"
+  }
+  column "app_id" {
+    null    = false
+    type    = bigint
+    default = 0
+    comment = "app id"
+  }
+  column "creator_id" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "creator id"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "space id"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "Create Time in Milliseconds"
+  }
+  column "updated_at" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "Update Time in Milliseconds"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "Delete Time"
   }
   column "status" {
     null    = false
     type    = tinyint
     default = 1
-    comment = "0 初始化, 1 生效 2 失效"
+    comment = "0 initialization, 1 effective, 2 invalid"
   }
   column "description" {
     null    = true
     type    = text
-    comment = "描述"
+    comment = "description"
   }
   column "icon_uri" {
     null    = true
     type    = varchar(150)
-    comment = "头像uri"
+    comment = "icon uri"
   }
   column "format_type" {
     null    = false
     type    = tinyint
     default = 0
-    comment = "0:文本 1:表格 2:图片"
+    comment = "0: Text 1: Table 2: Images"
   }
   primary_key {
     columns = [column.id]
@@ -940,76 +1497,76 @@ table "knowledge" {
 }
 table "knowledge_document" {
   schema  = schema.opencoze
-  comment = "知识库文档表"
+  comment = "knowledge document info"
   column "id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "knowledge_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "所属knowledge的ID"
+    comment  = "knowledge id"
   }
   column "name" {
     null    = false
     type    = varchar(150)
     default = ""
-    comment = "文档名称"
+    comment = "document name"
   }
   column "file_extension" {
     null    = false
     type    = varchar(20)
     default = "0"
-    comment = "文档类型, txt/pdf/csv/..."
+    comment = "Document type, txt/pdf/csv etc.."
   }
   column "document_type" {
     null    = false
     type    = int
     default = 0
-    comment = "文档类型: 0:文本 1:表格 2:图片"
+    comment = "Document type: 0: Text 1: Table 2: Image"
   }
   column "uri" {
     null    = true
     type    = text
-    comment = "资源uri"
+    comment = "uri"
   }
   column "size" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "文档大小"
+    comment  = "document size"
   }
   column "slice_count" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "分片数量"
+    comment  = "slice count"
   }
   column "char_count" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "字符数"
+    comment  = "number of characters"
   }
   column "creator_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建者ID"
+    comment  = "creator id"
   }
   column "space_id" {
     null    = false
     type    = bigint
     default = 0
-    comment = "空间id"
+    comment = "space id"
   }
   column "created_at" {
     null     = false
@@ -1028,34 +1585,34 @@ table "knowledge_document" {
   column "deleted_at" {
     null    = true
     type    = datetime(3)
-    comment = "Delete Time in Milliseconds"
+    comment = "Delete Time"
   }
   column "source_type" {
-    null    = false
+    null    = true
     type    = int
     default = 0
-    comment = "0:本地文件上传, 2:自定义文本"
+    comment = "0: Local file upload, 2: Custom text, 103: Feishu 104: Lark"
   }
   column "status" {
     null    = false
     type    = int
     default = 0
-    comment = "状态"
+    comment = "status"
   }
   column "fail_reason" {
     null    = true
     type    = text
-    comment = "失败原因"
+    comment = "fail reason"
   }
   column "parse_rule" {
     null    = true
     type    = json
-    comment = "解析+切片规则"
+    comment = "parse rule"
   }
   column "table_info" {
     null    = true
     type    = json
-    comment = "表格信息"
+    comment = "table info"
   }
   primary_key {
     columns = [column.id]
@@ -1069,13 +1626,13 @@ table "knowledge_document" {
 }
 table "knowledge_document_review" {
   schema  = schema.opencoze
-  comment = "文档审阅表"
+  comment = "Document slice preview info"
   column "id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "knowledge_id" {
     null     = false
@@ -1088,48 +1645,48 @@ table "knowledge_document_review" {
     null    = false
     type    = bigint
     default = 0
-    comment = "空间id"
+    comment = "space id"
   }
   column "name" {
     null    = false
     type    = varchar(150)
     default = ""
-    comment = "文档名称"
+    comment = "name"
   }
   column "type" {
     null    = false
     type    = varchar(10)
     default = "0"
-    comment = "文档类型"
+    comment = "document type"
   }
   column "uri" {
     null    = true
     type    = text
-    comment = "资源标识"
+    comment = "uri"
   }
   column "format_type" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "0 文本, 1 表格, 2 图片"
+    comment  = "0 text, 1 table, 2 images"
   }
   column "status" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "0 处理中，1 已完成，2 失败，3 失效"
+    comment  = "0 Processing 1 Completed 2 Failed 3 Expired"
   }
   column "chunk_resp_uri" {
     null    = true
     type    = text
-    comment = "预切片tos资源标识"
+    comment = "pre-sliced uri"
   }
   column "deleted_at" {
     null    = true
     type    = datetime(3)
-    comment = "Delete Time in Milliseconds"
+    comment = "Delete Time"
   }
   column "created_at" {
     null     = false
@@ -1149,7 +1706,7 @@ table "knowledge_document_review" {
     null    = false
     type    = bigint
     default = 0
-    comment = "创建者ID"
+    comment = "creator id"
   }
   primary_key {
     columns = [column.id]
@@ -1166,13 +1723,13 @@ table "knowledge_document_review" {
 }
 table "knowledge_document_slice" {
   schema  = schema.opencoze
-  comment = "知识库文件切片表"
+  comment = "knowledge document slice"
   column "id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "knowledge_id" {
     null     = false
@@ -1186,18 +1743,18 @@ table "knowledge_document_slice" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "document id"
+    comment  = "document_id"
   }
   column "content" {
     null    = true
     type    = text
-    comment = "切片内容"
+    comment = "content"
   }
   column "sequence" {
     null     = false
     type     = decimal(20,5)
     unsigned = false
-    comment  = "切片顺序号, 从1开始"
+    comment  = "slice sequence number, starting from 1"
   }
   column "created_at" {
     null     = false
@@ -1216,37 +1773,37 @@ table "knowledge_document_slice" {
   column "deleted_at" {
     null    = true
     type    = datetime(3)
-    comment = "Delete Time in Milliseconds"
+    comment = "Delete Time"
   }
   column "creator_id" {
     null    = false
     type    = bigint
     default = 0
-    comment = "创建者ID"
+    comment = "creator id"
   }
   column "space_id" {
     null    = false
     type    = bigint
     default = 0
-    comment = "空间ID"
+    comment = "space id"
   }
   column "status" {
     null    = false
     type    = int
     default = 0
-    comment = "状态"
+    comment = "status"
   }
   column "fail_reason" {
     null    = true
     type    = text
-    comment = "失败原因"
+    comment = "fail reason"
   }
   column "hit" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "命中次数"
+    comment  = "hit counts "
   }
   primary_key {
     columns = [column.id]
@@ -1261,14 +1818,48 @@ table "knowledge_document_slice" {
     columns = [column.sequence]
   }
 }
-table "message" {
+table "kv_entries" {
   schema  = schema.opencoze
-  comment = "消息表"
+  comment = "kv data"
+  collate = "utf8mb4_general_ci"
   column "id" {
     null           = false
     type           = bigint
     unsigned       = true
-    comment        = "主键ID"
+    comment        = "id"
+    auto_increment = true
+  }
+  column "namespace" {
+    null    = false
+    type    = varchar(255)
+    comment = "namespace"
+  }
+  column "key_data" {
+    null    = false
+    type    = varchar(255)
+    comment = "key_data"
+  }
+  column "value_data" {
+    null    = true
+    type    = longblob
+    comment = "value_data"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "uniq_namespace_key" {
+    unique  = true
+    columns = [column.namespace, column.key_data]
+  }
+}
+table "message" {
+  schema  = schema.opencoze
+  comment = "message record"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    comment        = "id"
     auto_increment = true
   }
   column "run_id" {
@@ -1276,7 +1867,7 @@ table "message" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "对应的run_id"
+    comment  = "run_id"
   }
   column "conversation_id" {
     null     = false
@@ -1302,69 +1893,69 @@ table "message" {
     null    = false
     type    = varchar(100)
     default = ""
-    comment = "角色: user、assistant、system"
+    comment = "role: user、assistant、system"
   }
   column "content_type" {
     null    = false
     type    = varchar(100)
     default = ""
-    comment = "内容类型 1 text"
+    comment = "content type 1 text"
   }
   column "content" {
     null    = true
     type    = mediumtext
-    comment = "内容"
+    comment = "content"
   }
   column "message_type" {
     null    = false
     type    = varchar(100)
     default = ""
-    comment = "消息类型："
+    comment = "message_type"
   }
   column "display_content" {
     null    = true
     type    = text
-    comment = "展示内容"
+    comment = "display content"
   }
   column "ext" {
     null    = true
     type    = text
-    comment = "message 扩展字段"
+    comment = "message ext"
     collate = "utf8mb4_general_ci"
   }
   column "section_id" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = "段落id"
+    comment  = "section_id"
   }
   column "broken_position" {
     null    = true
     type    = int
     default = -1
-    comment = "打断位置"
+    comment = "broken position"
   }
   column "status" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "消息状态 1 Available 2 Deleted 3 Replaced 4 Broken 5 Failed 6 Streaming 7 Pending"
+    comment  = "message status: 1 Available 2 Deleted 3 Replaced 4 Broken 5 Failed 6 Streaming 7 Pending"
   }
   column "model_content" {
     null    = true
     type    = mediumtext
-    comment = "模型输入内容"
+    comment = "model content"
   }
   column "meta_info" {
     null    = true
     type    = text
-    comment = "引用、高亮等文本标记信息"
+    comment = "text tagging information such as citation and highlighting"
   }
   column "reasoning_content" {
     null    = true
     type    = text
-    comment = "思考内容"
+    comment = "reasoning content"
     collate = "utf8mb4_general_ci"
   }
   column "created_at" {
@@ -1372,14 +1963,14 @@ table "message" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建时间"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "更新时间"
+    comment  = "Update Time in Milliseconds"
   }
   primary_key {
     columns = [column.id]
@@ -1393,45 +1984,45 @@ table "message" {
 }
 table "model_entity" {
   schema  = schema.opencoze
-  comment = "模型信息"
+  comment = "Model information"
   column "id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "meta_id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "模型元信息 id"
+    comment  = "model metadata id"
   }
   column "name" {
     null    = false
     type    = varchar(128)
-    comment = "名称"
+    comment = "name"
   }
   column "description" {
     null    = true
     type    = text
-    comment = "描述"
+    comment = "description"
   }
   column "default_params" {
     null    = true
     type    = json
-    comment = "默认参数"
+    comment = "default params"
   }
   column "scenario" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "模型应用场景"
+    comment  = "scenario"
   }
   column "status" {
     null    = false
     type    = int
     default = 1
-    comment = "模型状态"
+    comment = "model status"
   }
   column "created_at" {
     null     = false
@@ -1451,7 +2042,7 @@ table "model_entity" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = "Delete Time in Milliseconds"
+    comment  = "Delete Time"
   }
   primary_key {
     columns = [column.id]
@@ -1463,24 +2054,92 @@ table "model_entity" {
     columns = [column.status]
   }
 }
+table "model_instance" {
+  schema  = schema.opencoze
+  comment = "Model Instance Management Table"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    comment        = "id"
+    auto_increment = true
+  }
+  column "type" {
+    null    = false
+    type    = tinyint
+    comment = "Model Type 0-LLM 1-TextEmbedding 2-Rerank "
+  }
+  column "provider" {
+    null    = false
+    type    = json
+    comment = "Provider Information"
+  }
+  column "display_info" {
+    null    = false
+    type    = json
+    comment = "Display Information"
+  }
+  column "connection" {
+    null    = false
+    type    = json
+    comment = "Connection Information"
+  }
+  column "capability" {
+    null    = false
+    type    = json
+    comment = "Model Capability"
+  }
+  column "parameters" {
+    null    = false
+    type    = json
+    comment = "Model Parameters"
+  }
+  column "extra" {
+    null    = true
+    type    = json
+    comment = "Extra Information"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "Create Time in Milliseconds"
+  }
+  column "updated_at" {
+    null     = false
+    type     = bigint
+    default  = 0
+    unsigned = true
+    comment  = "Update Time in Milliseconds"
+  }
+  column "deleted_at" {
+    null    = true
+    type    = datetime(3)
+    comment = "Delete Time"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+}
 table "model_meta" {
   schema  = schema.opencoze
-  comment = "模型元信息"
+  comment = "Model metadata"
   column "id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "model_name" {
     null    = false
     type    = varchar(128)
-    comment = "模型名称"
+    comment = "model name"
   }
   column "protocol" {
     null    = false
     type    = varchar(128)
-    comment = "模型协议"
+    comment = "model protocol"
   }
   column "icon_uri" {
     null    = false
@@ -1491,24 +2150,24 @@ table "model_meta" {
   column "capability" {
     null    = true
     type    = json
-    comment = "模型能力"
+    comment = "capability"
   }
   column "conn_config" {
     null    = true
     type    = json
-    comment = "模型连接配置"
+    comment = "model conn config"
   }
   column "status" {
     null    = false
     type    = int
     default = 1
-    comment = "模型状态"
+    comment = "model status"
   }
   column "description" {
     null    = false
     type    = varchar(2048)
     default = ""
-    comment = "模型描述"
+    comment = "description"
   }
   column "created_at" {
     null     = false
@@ -1528,7 +2187,7 @@ table "model_meta" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = "Delete Time in Milliseconds"
+    comment  = "Delete Time"
   }
   column "icon_url" {
     null    = false
@@ -1545,8 +2204,7 @@ table "model_meta" {
 }
 table "node_execution" {
   schema  = schema.opencoze
-  comment = "node 节点运行记录，用于记录每次workflow执行时，每个节点的状态信息"
-  collate = "utf8mb4_0900_ai_ci"
+  comment = "Node run record, used to record the status information of each node during each workflow execution"
   column "id" {
     null     = false
     type     = bigint
@@ -1563,19 +2221,16 @@ table "node_execution" {
     null    = false
     type    = varchar(128)
     comment = "node key"
-    collate = "utf8mb4_unicode_ci"
   }
   column "node_name" {
     null    = false
     type    = varchar(128)
     comment = "name of the node"
-    collate = "utf8mb4_unicode_ci"
   }
   column "node_type" {
     null    = false
     type    = varchar(128)
     comment = "the type of the node, in string"
-    collate = "utf8mb4_unicode_ci"
   }
   column "created_at" {
     null     = false
@@ -1599,31 +2254,26 @@ table "node_execution" {
     null    = true
     type    = mediumtext
     comment = "actual input of the node"
-    collate = "utf8mb4_unicode_ci"
   }
   column "output" {
     null    = true
     type    = mediumtext
     comment = "actual output of the node"
-    collate = "utf8mb4_unicode_ci"
   }
   column "raw_output" {
     null    = true
     type    = mediumtext
     comment = "the original output of the node"
-    collate = "utf8mb4_unicode_ci"
   }
   column "error_info" {
     null    = true
     type    = mediumtext
     comment = "error info"
-    collate = "utf8mb4_unicode_ci"
   }
   column "error_level" {
     null    = true
     type    = varchar(32)
     comment = "level of the error"
-    collate = "utf8mb4_unicode_ci"
   }
   column "input_tokens" {
     null     = true
@@ -1647,19 +2297,17 @@ table "node_execution" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = "loop or batch's execution index"
+    comment  = "loop or batch_s execution index"
   }
   column "composite_node_items" {
     null    = true
     type    = mediumtext
     comment = "the items extracted from parent composite node for this index"
-    collate = "utf8mb4_unicode_ci"
   }
   column "parent_node_id" {
     null    = true
     type    = varchar(128)
-    comment = "when as inner node for loop or batch, this is the parent node's key"
-    collate = "utf8mb4_unicode_ci"
+    comment = "when as inner node for loop or batch, this is the parent node_s key"
   }
   column "sub_execute_id" {
     null     = true
@@ -1671,7 +2319,6 @@ table "node_execution" {
     null    = true
     type    = mediumtext
     comment = "extra info"
-    collate = "utf8mb4_unicode_ci"
   }
   primary_key {
     columns = [column.id]
@@ -2005,12 +2652,12 @@ table "plugin_oauth_auth" {
     comment = "Authorization Code OAuth Config"
   }
   column "access_token" {
-    null    = false
+    null    = true
     type    = text
     comment = "Access Token"
   }
   column "refresh_token" {
-    null    = false
+    null    = true
     type    = text
     comment = "Refresh Token"
   }
@@ -2160,57 +2807,59 @@ table "plugin_version" {
 table "prompt_resource" {
   schema  = schema.opencoze
   comment = "prompt_resource"
-  collate = "utf8mb4_0900_ai_ci"
   column "id" {
     null           = false
     type           = bigint
     unsigned       = true
-    comment        = "主键ID"
+    comment        = "id"
     auto_increment = true
   }
   column "space_id" {
     null    = false
     type    = bigint
-    comment = "空间ID"
+    comment = "space id"
   }
   column "name" {
     null    = false
     type    = varchar(255)
-    comment = "名称"
+    comment = "name"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "description" {
     null    = false
     type    = varchar(255)
-    comment = "描述"
+    comment = "description"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "prompt_text" {
     null    = true
     type    = mediumtext
-    comment = "prompt正文"
+    comment = "prompt text"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "status" {
     null    = false
     type    = int
-    comment = "状态,0无效,1有效"
+    comment = "status, 0 is invalid, 1 is valid"
   }
   column "creator_id" {
     null    = false
     type    = bigint
-    comment = "创建者ID"
+    comment = "creator id"
   }
   column "created_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建时间"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "更新时间"
+    comment  = "Update Time in Milliseconds"
   }
   primary_key {
     columns = [column.id]
@@ -2221,19 +2870,19 @@ table "prompt_resource" {
 }
 table "run_record" {
   schema  = schema.opencoze
-  comment = "执行记录表"
+  comment = "run record"
   column "id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "conversation_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "会话 ID"
+    comment  = "conversation id"
   }
   column "section_id" {
     null     = false
@@ -2260,40 +2909,40 @@ table "run_record" {
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "执行来源 0 API,"
+    comment  = "Execute source 0 API"
   }
   column "status" {
     null    = false
     type    = varchar(255)
     default = ""
-    comment = "状态,0 Unknown, 1-Created,2-InProgress,3-Completed,4-Failed,5-Expired,6-Cancelled,7-RequiresAction"
+    comment = "status,0 Unknown, 1-Created,2-InProgress,3-Completed,4-Failed,5-Expired,6-Cancelled,7-RequiresAction"
   }
   column "creator_id" {
     null    = false
     type    = bigint
     default = 0
-    comment = "创建者标识"
+    comment = "creator id"
   }
   column "created_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建时间"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "更新时间"
+    comment  = "Update Time in Milliseconds"
   }
   column "failed_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "失败时间"
+    comment  = "Fail Time in Milliseconds"
   }
   column "last_error" {
     null    = true
@@ -2306,18 +2955,18 @@ table "run_record" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "结束时间"
+    comment  = "Finish Time in Milliseconds"
   }
   column "chat_request" {
     null    = true
     type    = text
-    comment = "保存原始请求的部分字段"
+    comment = "Original request field"
     collate = "utf8mb4_general_ci"
   }
   column "ext" {
     null    = true
     type    = text
-    comment = "扩展字段"
+    comment = "ext"
     collate = "utf8mb4_general_ci"
   }
   column "usage" {
@@ -2334,13 +2983,13 @@ table "run_record" {
 }
 table "shortcut_command" {
   schema  = schema.opencoze
-  comment = "bot快捷指令表"
+  comment = "bot shortcut command table"
   collate = "utf8mb4_general_ci"
   column "id" {
     null           = false
     type           = bigint
     unsigned       = true
-    comment        = "主键ID"
+    comment        = "id"
     auto_increment = true
   }
   column "object_id" {
@@ -2348,137 +2997,143 @@ table "shortcut_command" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "实体ID,该实体可用这个指令"
+    comment  = "Entity ID, this command can be used for this entity"
   }
   column "command_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "命令ID"
+    comment  = "command id"
   }
   column "command_name" {
     null    = false
     type    = varchar(255)
     default = ""
-    comment = "命令名称"
+    comment = "command name"
   }
   column "shortcut_command" {
     null    = false
     type    = varchar(255)
     default = ""
-    comment = "快捷指令"
+    comment = "shortcut command"
   }
   column "description" {
     null    = false
     type    = varchar(2000)
     default = ""
-    comment = "命令描述"
+    comment = "description"
   }
   column "send_type" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "发送类型 0:query 1:panel"
+    comment  = "send type 0:query 1:panel"
   }
   column "tool_type" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "使用工具的type 1:workFlow 2:插件"
+    comment  = "Type 1 of tool used: WorkFlow 2: Plugin"
   }
   column "work_flow_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "使用workFlow的id"
+    comment  = "workflow id"
   }
   column "plugin_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "使用插件的id"
+    comment  = "plugin id"
   }
   column "plugin_tool_name" {
     null    = false
     type    = varchar(255)
     default = ""
-    comment = "使用插件的api_name"
+    comment = "plugin tool name"
   }
   column "template_query" {
     null    = true
     type    = text
-    comment = "query模板"
+    comment = "template query"
   }
   column "components" {
     null    = true
     type    = json
-    comment = "panel参数"
+    comment = "Panel parameters"
   }
   column "card_schema" {
     null    = true
     type    = text
-    comment = "卡片schema"
+    comment = "card schema"
   }
   column "tool_info" {
     null    = true
     type    = json
-    comment = "工具信息 包含name+变量列表"
+    comment = "Tool information includes name+variable list"
   }
   column "status" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "状态,0无效,1有效"
+    comment  = "Status, 0 is invalid, 1 is valid"
   }
   column "creator_id" {
     null     = true
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建者ID"
+    comment  = "creator id"
   }
   column "is_online" {
     null     = false
     type     = tinyint
     default  = 0
     unsigned = true
-    comment  = "是否为线上信息 0草稿 1线上"
+    comment  = "Is online information: 0 draft 1 online"
   }
   column "created_at" {
     null    = false
     type    = bigint
     default = 0
-    comment = "创建时间"
+    comment = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null    = false
     type    = bigint
     default = 0
-    comment = "更新时间"
+    comment = "Update Time in Milliseconds"
   }
   column "agent_id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "multi的指令时，该指令由哪个节点执行"
+    comment  = "When executing a multi instruction, which node executes the instruction"
   }
   column "shortcut_icon" {
     null    = true
     type    = json
-    comment = "快捷指令图标"
+    comment = "shortcut icon"
   }
   column "plugin_tool_id" {
     null    = false
     type    = bigint
     default = 0
     comment = "tool_id"
+  }
+  column "source" {
+    null    = true
+    type    = tinyint
+    default = 0
+    comment = "plugin source 1 coze saas 0 default"
   }
   primary_key {
     columns = [column.id]
@@ -2523,7 +3178,7 @@ table "single_agent_draft" {
     comment = "Agent Name"
   }
   column "description" {
-    null    = false
+    null    = true
     type    = text
     comment = "Agent Description"
   }
@@ -2555,7 +3210,7 @@ table "single_agent_draft" {
   column "variables_meta_id" {
     null    = true
     type    = bigint
-    comment = "variables meta 表 ID"
+    comment = "variables meta table ID"
   }
   column "model_info" {
     null    = true
@@ -2612,6 +3267,17 @@ table "single_agent_draft" {
     type    = json
     comment = "shortcut command"
   }
+  column "bot_mode" {
+    null    = false
+    type    = tinyint
+    default = 0
+    comment = "bot mode,0:single mode 2:chatflow mode"
+  }
+  column "layout_info" {
+    null    = true
+    type    = text
+    comment = "chatflow layout info"
+  }
   primary_key {
     columns = [column.id]
   }
@@ -2625,12 +3291,12 @@ table "single_agent_draft" {
 }
 table "single_agent_publish" {
   schema  = schema.opencoze
-  comment = "bot 渠道和发布版本流水表"
+  comment = "Bot connector and release version info"
   column "id" {
     null           = false
     type           = bigint
     unsigned       = true
-    comment        = "主键id"
+    comment        = "id"
     auto_increment = true
   }
   column "agent_id" {
@@ -2644,13 +3310,13 @@ table "single_agent_publish" {
     null    = false
     type    = varchar(50)
     default = ""
-    comment = "发布 id"
+    comment = "publish id"
     collate = "utf8mb4_general_ci"
   }
   column "connector_ids" {
     null    = true
     type    = json
-    comment = "发布的 connector_ids"
+    comment = "connector_ids"
   }
   column "version" {
     null    = false
@@ -2661,7 +3327,7 @@ table "single_agent_publish" {
   column "publish_info" {
     null    = true
     type    = text
-    comment = "发布信息"
+    comment = "publish info"
     collate = "utf8mb4_general_ci"
   }
   column "publish_time" {
@@ -2669,7 +3335,7 @@ table "single_agent_publish" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "发布时间"
+    comment  = "publish time"
   }
   column "created_at" {
     null     = false
@@ -2690,18 +3356,18 @@ table "single_agent_publish" {
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "发布人 user_id"
+    comment  = "creator id"
   }
   column "status" {
     null    = false
     type    = tinyint
     default = 0
-    comment = "状态 0:使用中 1:删除 3:禁用"
+    comment = "Status 0: In use 1: Delete 3: Disabled"
   }
   column "extra" {
     null    = true
     type    = json
-    comment = "扩展字段"
+    comment = "extra"
   }
   primary_key {
     columns = [column.id]
@@ -2751,7 +3417,7 @@ table "single_agent_version" {
     comment = "Agent Name"
   }
   column "description" {
-    null    = false
+    null    = true
     type    = text
     comment = "Agent Description"
   }
@@ -2783,7 +3449,7 @@ table "single_agent_version" {
   column "variables_meta_id" {
     null    = true
     type    = bigint
-    comment = "variables meta 表 ID"
+    comment = "variables meta table ID"
   }
   column "model_info" {
     null    = true
@@ -2851,6 +3517,17 @@ table "single_agent_version" {
     null    = true
     type    = json
     comment = "shortcut command"
+  }
+  column "bot_mode" {
+    null    = false
+    type    = tinyint
+    default = 0
+    comment = "bot mode,0:single mode 2:chatflow mode"
+  }
+  column "layout_info" {
+    null    = true
+    type    = text
+    comment = "chatflow layout info"
   }
   primary_key {
     columns = [column.id]
@@ -3381,13 +4058,12 @@ table "user" {
 table "variable_instance" {
   schema  = schema.opencoze
   comment = "KV Memory"
-  collate = "utf8mb4_0900_ai_ci"
   column "id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "biz_type" {
     null     = false
@@ -3400,50 +4076,55 @@ table "variable_instance" {
     type    = varchar(128)
     default = ""
     comment = "1 for agent_id，2 for app_id"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "version" {
     null    = false
     type    = varchar(255)
-    comment = "agent or project 版本,为空代表草稿态"
+    comment = "agent or project version empty represents draft status"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "keyword" {
     null    = false
     type    = varchar(255)
-    comment = "记忆的KEY"
+    comment = "Keyword to Memory"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "type" {
     null    = false
     type    = tinyint
-    comment = "记忆类型 1 KV 2 list"
+    comment = "Memory type 1 KV 2 list"
   }
   column "content" {
     null    = true
     type    = text
-    comment = "记忆内容"
+    comment = "content"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "connector_uid" {
     null    = false
     type    = varchar(255)
-    comment = "二方用户ID"
+    comment = "connector_uid"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "connector_id" {
     null    = false
     type    = bigint
-    comment = "二方id, e.g. coze = 10000010"
+    comment = "connector_id, e.g. coze = 10000010"
   }
   column "created_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "创建时间"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "更新时间"
+    comment  = "Update Time in Milliseconds"
   }
   primary_key {
     columns = [column.id]
@@ -3455,19 +4136,18 @@ table "variable_instance" {
 table "variables_meta" {
   schema  = schema.opencoze
   comment = "KV Memory meta"
-  collate = "utf8mb4_0900_ai_ci"
   column "id" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "主键ID"
+    comment  = "id"
   }
   column "creator_id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "创建者ID"
+    comment  = "creator id"
   }
   column "biz_type" {
     null     = false
@@ -3480,30 +4160,32 @@ table "variables_meta" {
     type    = varchar(128)
     default = ""
     comment = "1 for agent_id，2 for app_id"
+    collate = "utf8mb4_0900_ai_ci"
   }
   column "variable_list" {
     null    = true
     type    = json
-    comment = "变量配置的json数据"
+    comment = "JSON data for variable configuration"
   }
   column "created_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "create time"
+    comment  = "Create Time in Milliseconds"
   }
   column "updated_at" {
     null     = false
     type     = bigint
     default  = 0
     unsigned = true
-    comment  = "update time"
+    comment  = "Update Time in Milliseconds"
   }
   column "version" {
     null    = false
     type    = varchar(255)
-    comment = "project版本,为空代表草稿态"
+    comment = "Project version, empty represents draft status"
+    collate = "utf8mb4_0900_ai_ci"
   }
   primary_key {
     columns = [column.id]
@@ -3518,7 +4200,7 @@ table "variables_meta" {
 }
 table "workflow_draft" {
   schema  = schema.opencoze
-  comment = "workflow 画布草稿表，用于记录workflow最新的草稿画布信息"
+  comment = "Workflow canvas draft table, used to record the latest draft canvas information of workflow"
   column "id" {
     null     = false
     type     = bigint
@@ -3526,40 +4208,42 @@ table "workflow_draft" {
     comment  = "workflow ID"
   }
   column "canvas" {
-    null    = false
+    null    = true
     type    = mediumtext
-    comment = "前端 schema"
+    comment = "Front end schema"
   }
   column "input_params" {
     null    = true
     type    = mediumtext
-    comment = " 入参 schema"
+    comment = "Input schema"
   }
   column "output_params" {
     null    = true
     type    = mediumtext
-    comment = " 出参 schema"
+    comment = "Output parameter schema"
   }
   column "test_run_success" {
     null    = false
     type    = bool
     default = 0
-    comment = "0 未运行, 1 运行成功"
+    comment = "0 not running, 1 running successfully"
   }
   column "modified" {
     null    = false
     type    = bool
     default = 0
-    comment = "0 未被修改, 1 已被修改"
+    comment = "0 has not been modified, 1 has been modified"
   }
   column "updated_at" {
     null     = true
     type     = bigint
     unsigned = true
+    comment  = "Update Time in Milliseconds"
   }
   column "deleted_at" {
-    null = true
-    type = datetime(3)
+    null    = true
+    type    = datetime(3)
+    comment = "Delete Time"
   }
   column "commit_id" {
     null    = false
@@ -3578,7 +4262,7 @@ table "workflow_draft" {
 }
 table "workflow_execution" {
   schema  = schema.opencoze
-  comment = "workflow 执行记录表，用于记录每次workflow执行时的状态"
+  comment = "Workflow Execution Record Table, used to record the status of each workflow execution"
   column "id" {
     null     = false
     type     = bigint
@@ -3741,7 +4425,7 @@ table "workflow_execution" {
 }
 table "workflow_meta" {
   schema  = schema.opencoze
-  comment = "workflow 元信息表，用于记录workflow基本的元信息"
+  comment = "The workflow metadata table,used to record the basic metadata of workflow"
   column "id" {
     null     = false
     type     = bigint
@@ -3767,13 +4451,13 @@ table "workflow_meta" {
     null     = false
     type     = tinyint
     unsigned = true
-    comment  = "0:未发布过, 1:已发布过"
+    comment  = "0: Not published, 1: Published"
   }
   column "content_type" {
     null     = false
     type     = tinyint
     unsigned = true
-    comment  = "0用户 1官方"
+    comment  = "0 Users 1 Official"
   }
   column "mode" {
     null     = false
@@ -3814,31 +4498,31 @@ table "workflow_meta" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "原作者用户 ID"
+    comment  = "Original author user ID"
   }
   column "space_id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = " 空间 ID"
+    comment  = "space id"
   }
   column "updater_id" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = " 更新元信息的用户 ID"
+    comment  = "User ID for updating metadata"
   }
   column "source_id" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = " 复制来源的 workflow ID"
+    comment  = "Workflow ID of source"
   }
   column "app_id" {
     null     = true
     type     = bigint
     unsigned = true
-    comment  = "应用 ID"
+    comment  = "app id"
   }
   column "latest_version" {
     null    = true
@@ -3869,7 +4553,7 @@ table "workflow_meta" {
 }
 table "workflow_reference" {
   schema  = schema.opencoze
-  comment = "workflow 关联关系表，用于记录workflow 直接互相引用关系"
+  comment = "The workflow association table,used to record the direct mutual reference relationship between workflows"
   column "id" {
     null     = false
     type     = bigint
@@ -3913,8 +4597,9 @@ table "workflow_reference" {
     comment  = "whether this reference currently takes effect. 0: disabled 1: enabled"
   }
   column "deleted_at" {
-    null = true
-    type = datetime(3)
+    null    = true
+    type    = datetime(3)
+    comment = "Delete Time"
   }
   primary_key {
     columns = [column.id]
@@ -3945,7 +4630,7 @@ table "workflow_snapshot" {
     comment = "the commit id of the workflow draft"
   }
   column "canvas" {
-    null    = false
+    null    = true
     type    = mediumtext
     comment = "frontend schema for this snapshot"
   }
@@ -3963,6 +4648,7 @@ table "workflow_snapshot" {
     null     = false
     type     = bigint
     unsigned = true
+    comment  = "Create Time in Milliseconds"
   }
   column "id" {
     null           = false
@@ -3981,7 +4667,7 @@ table "workflow_snapshot" {
 }
 table "workflow_version" {
   schema  = schema.opencoze
-  comment = "workflow 画布版本信息表，用于记录不同版本的画布信息"
+  comment = "Workflow Canvas Version Information Table, used to record canvas information for different versions"
   column "id" {
     null           = false
     type           = bigint
@@ -3998,42 +4684,44 @@ table "workflow_version" {
   column "version" {
     null    = false
     type    = varchar(50)
-    comment = "发布版本"
+    comment = "Published version"
   }
   column "version_description" {
     null    = false
     type    = varchar(2000)
-    comment = "版本描述"
+    comment = "Version Description"
   }
   column "canvas" {
-    null    = false
+    null    = true
     type    = mediumtext
-    comment = "前端 schema"
+    comment = "Front end schema"
   }
   column "input_params" {
-    null = true
-    type = mediumtext
+    null    = true
+    type    = mediumtext
+    comment = "input params"
   }
   column "output_params" {
-    null = true
-    type = mediumtext
+    null    = true
+    type    = mediumtext
+    comment = "output params"
   }
   column "creator_id" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "发布用户 ID"
+    comment  = "creator id"
   }
   column "created_at" {
     null     = false
     type     = bigint
     unsigned = true
-    comment  = "创建时间毫秒时间戳"
+    comment  = "Create Time in Milliseconds"
   }
   column "deleted_at" {
     null    = true
     type    = datetime(3)
-    comment = "删除毫秒时间戳"
+    comment = "Delete Time"
   }
   column "commit_id" {
     null    = false

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 /* eslint-disable complexity */
 /* eslint-disable max-lines-per-function */
 import React, {
@@ -30,6 +30,7 @@ import classnames from 'classnames';
 import {
   useEntityFromContext,
   useService,
+  usePlaygroundContainer,
 } from '@flowgram-adapter/free-layout-editor';
 import {
   type WorkflowNodeEntity,
@@ -126,7 +127,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
   const { canMoveOut, handleMoveOut, updateCanMoveOut } = useMoveOut({
     onHandle: () => {
-      // 强制销毁 Dropdown menu
+      // Forced destruction of Dropdown menu
       setMenusVisible(false);
       requestAnimationFrame(() => {
         setMenusVisible(true);
@@ -154,11 +155,11 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
   }, [title]);
 
   /**
-   * 删除节点
+   * Delete Node
    */
   const handleDelete = (e: MouseEvent) => {
     e.stopPropagation();
-    // 加个setTimtout，关闭面板后再显示删除弹窗
+    // Add a setTimtout, close the panel and then display the delete pop-up window.
     setTimeout(() => {
       editService.deleteNode(node, true);
       closeNodeSideSheet();
@@ -166,10 +167,21 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
     }, 10);
   };
 
-  const handleCopy = (_, e: MouseEvent) => {
-    e.stopPropagation();
-    editService.copyNode(node);
-  };
+  const container = usePlaygroundContainer();
+  const handleCopy = useCallback(
+    async (_: unknown, e: MouseEvent) => {
+      e.stopPropagation();
+      const {
+        WorkflowCopyShortcutsContribution,
+        WorkflowPasteShortcutsContribution,
+      } = await import('@/shortcuts');
+      const copyService = container.get(WorkflowCopyShortcutsContribution);
+      const pasteService = container.get(WorkflowPasteShortcutsContribution);
+      const data = await copyService.toData([node]);
+      pasteService.apply(data);
+    },
+    [container, node],
+  );
 
   const handleDecapsulate = (_, e: MouseEvent) => {
     e.stopPropagation();
@@ -214,20 +226,20 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
     // const newTitle = event.target.value;
     setEditableTitle(newTitle);
 
-    // 将title更新到nodeDataEntity上，便于其他地方消费
+    // Update the title to nodeDataEntity for easy consumption elsewhere
     nodeDataEntity.updateNodeData<keyof NodeData>({
       title: newTitle,
     });
   };
 
-  // 是否需要渲染 ... 更多操作，非只读状态或者有额外操作时展示
+  // Do you need to render... more operations, non-read-only state, or show when there are additional operations
   const needShowOperations =
     (!readonly ||
       (readonly && readonlyAllowDeleteOperation) ||
       !!extraOperation) &&
     menusVisible;
 
-  // 是否为端插件，端插件展示一个特殊 tag
+  // Whether it is a terminal plug-in, the terminal plug-in displays a special tag.
   const isLocalPlugin =
     node.flowNodeType === StandardNodeType.Api &&
     get(nodeData, 'pluginType') === PluginType.LOCAL;

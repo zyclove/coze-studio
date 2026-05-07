@@ -24,8 +24,10 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	dataset "github.com/coze-dev/coze-studio/backend/api/model/flow/dataengine/dataset"
+	dataset "github.com/coze-dev/coze-studio/backend/api/model/data/knowledge"
+	"github.com/coze-dev/coze-studio/backend/application/knowledge"
 	application "github.com/coze-dev/coze-studio/backend/application/knowledge"
+	"github.com/coze-dev/coze-studio/backend/application/memory"
 	"github.com/coze-dev/coze-studio/backend/application/upload"
 )
 
@@ -139,7 +141,7 @@ func CreateDocument(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(dataset.CreateDocumentResponse)
-	resp, err = application.KnowledgeSVC.CreateDocument(ctx, &req)
+	resp, err = application.KnowledgeSVC.CreateDocument(ctx, &req, false)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return
@@ -159,7 +161,7 @@ func ListDocument(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(dataset.ListDocumentResponse)
-	resp, err = application.KnowledgeSVC.ListDocument(ctx, &req)
+	resp, err = application.KnowledgeSVC.ListDocument(ctx, &req, false)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return
@@ -179,7 +181,7 @@ func DeleteDocument(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(dataset.DeleteDocumentResponse)
-	resp, err = application.KnowledgeSVC.DeleteDocument(ctx, &req)
+	resp, err = application.KnowledgeSVC.DeleteDocument(ctx, &req, false)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return
@@ -199,7 +201,7 @@ func UpdateDocument(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(dataset.UpdateDocumentResponse)
-	resp, err = application.KnowledgeSVC.UpdateDocument(ctx, &req)
+	resp, err = application.KnowledgeSVC.UpdateDocument(ctx, &req, false)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return
@@ -520,6 +522,246 @@ func ExtractPhotoCaption(ctx context.Context, c *app.RequestContext) {
 
 	resp := new(dataset.ExtractPhotoCaptionResponse)
 	resp, err = application.KnowledgeSVC.ExtractPhotoCaption(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetDocumentTableInfo .
+// @router /api/memory/doc_table_info [GET]
+func GetDocumentTableInfo(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.GetDocumentTableInfoRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := new(dataset.GetDocumentTableInfoResponse)
+	resp, err = knowledge.KnowledgeSVC.GetDocumentTableInfo(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetModeConfig .
+// @router /api/memory/table_mode_config [GET]
+func GetModeConfig(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.GetModeConfigRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.BotID == 0 {
+		invalidParamRequestResponse(c, "bot_id is zero")
+		return
+	}
+
+	resp, err := memory.DatabaseApplicationSVC.GetModeConfig(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// CreateDocumentOpenAPI .
+// @router /open_api/knowledge/document/create [POST]
+func CreateDocumentOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.CreateDocumentRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp := new(dataset.CreateDocumentResponse)
+	resp, err = application.KnowledgeSVC.CreateDocument(ctx, &req, true)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// DeleteDocumentOpenAPI .
+// @router /open_api/knowledge/document/delete [POST]
+func DeleteDocumentOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.DeleteDocumentRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := new(dataset.DeleteDocumentResponse)
+	resp, err = application.KnowledgeSVC.DeleteDocument(ctx, &req, true)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// UpdateDocumentOpenAPI .
+// @router /open_api/knowledge/document/update [POST]
+func UpdateDocumentOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.UpdateDocumentRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := new(dataset.UpdateDocumentResponse)
+	resp, err = application.KnowledgeSVC.UpdateDocument(ctx, &req, true)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// ListDocumentOpenAPI .
+// @router /open_api/knowledge/document/list [POST]
+func ListDocumentOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.ListDocumentRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := new(dataset.ListDocumentResponse)
+	resp, err = application.KnowledgeSVC.ListDocument(ctx, &req, true)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// CreateDatasetOpenAPI .
+// @router /v1/datasets [POST]
+func CreateDatasetOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.CreateDatasetOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.CreateKnowledgeAPI(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// ListDatasetOpenAPI .
+// @router /v1/datasets [GET]
+func ListDatasetOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.ListDatasetOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.ListKnowledgeAPI(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// UpdateDatasetOpenAPI .
+// @router /v1/datasets/:dataset_id [PUT]
+func UpdateDatasetOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.UpdateDatasetOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.UpdateKnowledgeAPI(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// DeleteDatasetOpenAPI .
+// @router /v1/datasets/:dataset_id [DELETE]
+func DeleteDatasetOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.DeleteDatasetOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.DeleteKnowledgeAPI(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// ListPhotoDocumentOpenAPI .
+// @router /v1/datasets/:dataset_id/images [GET]
+func ListPhotoDocumentOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.ListPhotoOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.ListPhotoAPI(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// GetDocumentProgressOpenAPI .
+// @router /v1/datasets/:dataset_id/process [POST]
+func GetDocumentProgressOpenAPI(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req dataset.GetDocumentProgressOpenApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.KnowledgeSVC.GetDocumentProgressAPI(ctx, &req)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return

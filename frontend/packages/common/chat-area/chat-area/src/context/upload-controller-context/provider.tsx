@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type PropsWithChildren, useRef, useEffect } from 'react';
 
 import { UploadController } from '../../service/upload-controller';
+import { useChatAreaContext } from '../../hooks/context/use-chat-area-context';
 import {
   UploadControllerContext,
   type UploadControllerContextProps,
@@ -25,12 +26,16 @@ import {
 export const UploadControllerProvider: React.FC<PropsWithChildren> = ({
   children,
 }) => {
+  const { configs } = useChatAreaContext();
   const uploadControllerMap = useRef<
     UploadControllerContextProps['uploadControllerMap']
   >({});
   const createControllerAndUpload: UploadControllerContextProps['createControllerAndUpload'] =
     param => {
-      uploadControllerMap.current[param.fileId] = new UploadController(param);
+      uploadControllerMap.current[param.fileId] = new UploadController({
+        ...param,
+        multiUploadPlugin: configs.uploadPlugin,
+      });
     };
   const cancelUploadById: UploadControllerContextProps['cancelUploadById'] =
     id => {

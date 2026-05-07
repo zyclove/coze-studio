@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 export enum MineActiveEnum {
   All = '1',
   Mine = '2',
@@ -26,4 +26,6 @@ export enum PluginFilterType {
   Team = 'team',
   Favorite = 'favorite',
   Project = 'project',
+  Local = 'local',
+  Coze = 'coze',
 }

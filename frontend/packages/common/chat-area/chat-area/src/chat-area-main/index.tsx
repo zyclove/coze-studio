@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import {
   type RefObject,
   forwardRef,
@@ -166,7 +166,7 @@ const ChatAreaMain: FC<ChatAreaMainProps> = ({
                     >
                       <div className={styles['header-node']}>{headerNode}</div>
                       {customMessageListFloatSlotList.map(
-                        // eslint-disable-next-line @typescript-eslint/naming-convention -- 符合预期
+                        // eslint-disable-next-line @typescript-eslint/naming-convention -- as expected
                         ({ pluginName, Component }) => (
                           <PluginScopeContextProvider
                             pluginName={pluginName}
@@ -197,7 +197,7 @@ const ChatAreaMain: FC<ChatAreaMainProps> = ({
                       <DragUploadArea />
                     </div>
                     {customComponentList.map(
-                      // eslint-disable-next-line @typescript-eslint/naming-convention -- 符合预期
+                      // eslint-disable-next-line @typescript-eslint/naming-convention -- as expected
                       ({ pluginName, Component }, index) => (
                         <PluginScopeContextProvider pluginName={pluginName}>
                           <Component key={`${index}ScrollViewBottom`} />
@@ -222,6 +222,7 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>((props, ref) => {
     selectable,
     showClearContextDivider,
     messageWidth,
+    messageMaxWidth,
     readonly,
     uiKitChatInputButtonConfig,
     uikitChatInputButtonStatus,
@@ -237,6 +238,7 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>((props, ref) => {
     isOnboardingCentered,
     fileLimit,
     stopRespondOverrideWaiting,
+    isMiniScreen,
   } = props;
   const getScrollViewRef = useRef<() => ScrollViewController>(null);
   const {
@@ -278,6 +280,7 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>((props, ref) => {
         enableSelectOnboarding,
         showClearContextDivider,
         messageWidth,
+        messageMaxWidth,
         readonly: readonly || isClearMessageHistoryLock,
         uiKitChatInputButtonConfig,
         theme,
@@ -304,6 +307,7 @@ export const ChatArea = forwardRef<ChatAreaRef, ChatAreaProps>((props, ref) => {
         onboardingSuggestionsShowMode,
         showBackground,
         stopRespondOverrideWaiting,
+        isMiniScreen,
       }}
     >
       <ChatAreaMain

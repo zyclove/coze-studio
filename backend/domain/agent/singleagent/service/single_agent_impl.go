@@ -21,19 +21,19 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
 	"github.com/jinzhu/copier"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/bot_common"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossplugin"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/schema"
+
+	"github.com/coze-dev/coze-studio/backend/api/model/app/bot_common"
+	crossplugin "github.com/coze-dev/coze-studio/backend/crossdomain/plugin"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/plugin/model"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/internal/agentflow"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/repository"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/chatmodel"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/modelmgr"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
-	"github.com/coze-dev/coze-studio/backend/pkg/jsoncache"
+	"github.com/coze-dev/coze-studio/backend/pkg/kvstore"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
 	"github.com/coze-dev/coze-studio/backend/pkg/logs"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
@@ -44,12 +44,9 @@ type singleAgentImpl struct {
 }
 
 type Components struct {
-	ModelMgr     modelmgr.Manager
-	ModelFactory chatmodel.Factory
-
 	AgentDraftRepo   repository.SingleAgentDraftRepo
 	AgentVersionRepo repository.SingleAgentVersionRepo
-	PublishInfoRepo  *jsoncache.JsonCache[entity.PublishInfo]
+	PublishInfoRepo  *kvstore.KVStore[entity.PublishInfo]
 	CounterRepo      repository.CounterRepository
 
 	CPStore compose.CheckPointStore
@@ -104,12 +101,14 @@ func (s *singleAgentImpl) StreamExecute(ctx context.Context, req *entity.Execute
 	}
 
 	conf := &agentflow.Config{
-		Agent:        ae,
-		UserID:       req.UserID,
-		Identity:     req.Identity,
-		ModelMgr:     s.ModelMgr,
-		ModelFactory: s.ModelFactory,
-		CPStore:      s.CPStore,
+		Agent:    ae,
+		UserID:   req.UserID,
+		Identity: req.Identity,
+		CPStore:  s.CPStore,
+
+		CustomVariables: req.CustomVariables,
+
+		ConversationID: req.ConversationID,
 	}
 	rn, err := agentflow.BuildAgent(ctx, conf)
 	if err != nil {
@@ -143,16 +142,19 @@ func (s *singleAgentImpl) GetSingleAgent(ctx context.Context, agentID int64, ver
 
 func (s *singleAgentImpl) UpdateSingleAgentDraft(ctx context.Context, agentInfo *entity.SingleAgent) (err error) {
 	if agentInfo.Plugin != nil {
-		toolIDs := slices.Transform(agentInfo.Plugin, func(item *bot_common.PluginInfo) int64 {
-			return item.GetApiId()
-		})
-		err = crossplugin.DefaultSVC().BindAgentTools(ctx, agentInfo.AgentID, toolIDs)
+		err = crossplugin.DefaultSVC().BindAgentTools(ctx, agentInfo.AgentID, slices.Transform(agentInfo.Plugin, func(item *bot_common.PluginInfo) *model.BindToolInfo {
+			return &model.BindToolInfo{
+				ToolID:   item.GetApiId(),
+				PluginID: item.GetPluginId(),
+				Source:   item.PluginFrom,
+			}
+		}))
 		if err != nil {
 			return fmt.Errorf("bind agent tools failed, err=%v", err)
 		}
 	}
 
-	return s.AgentDraftRepo.Update(ctx, agentInfo)
+	return s.AgentDraftRepo.Save(ctx, agentInfo)
 }
 
 func (s *singleAgentImpl) CreateSingleAgentDraftWithID(ctx context.Context, creatorID, agentID int64, draft *entity.SingleAgent) (int64, error) {
@@ -287,7 +289,7 @@ func (s *singleAgentImpl) ListAgentPublishHistory(ctx context.Context, agentID i
 		maxCount          = pageSize * pageIndex
 	)
 
-	// 全量拉取符合条件的记录
+	// Pull all eligible records
 	for {
 		pageData, err := s.AgentVersionRepo.List(ctx, agentID, currentPage, 50)
 		if err != nil {
@@ -297,7 +299,7 @@ func (s *singleAgentImpl) ListAgentPublishHistory(ctx context.Context, agentID i
 			break
 		}
 
-		// 过滤当前页数据
+		// Filter current page data
 		for _, item := range pageData {
 			for _, cID := range item.ConnectorIds {
 				if cID == *connectorID {

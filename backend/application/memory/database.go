@@ -21,13 +21,14 @@ import (
 	"fmt"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/base"
-	model "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/database"
-	"github.com/coze-dev/coze-studio/backend/api/model/knowledge/document"
+	"github.com/coze-dev/coze-studio/backend/api/model/data/database/table"
+	"github.com/coze-dev/coze-studio/backend/api/model/data/knowledge"
+	document "github.com/coze-dev/coze-studio/backend/api/model/data/knowledge"
 	resCommon "github.com/coze-dev/coze-studio/backend/api/model/resource/common"
-	"github.com/coze-dev/coze-studio/backend/api/model/table"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	"github.com/coze-dev/coze-studio/backend/application/search"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossuser"
+	model "github.com/coze-dev/coze-studio/backend/crossdomain/database/model"
+	crossuser "github.com/coze-dev/coze-studio/backend/crossdomain/user"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/entity"
 	databaseEntity "github.com/coze-dev/coze-studio/backend/domain/memory/database/entity"
 	database "github.com/coze-dev/coze-studio/backend/domain/memory/database/service"
@@ -48,8 +49,8 @@ type DatabaseApplicationService struct {
 
 var DatabaseApplicationSVC = DatabaseApplicationService{}
 
-func (d *DatabaseApplicationService) GetModeConfig(ctx context.Context, req *table.GetModeConfigRequest) (*table.GetModeConfigResponse, error) {
-	return &table.GetModeConfigResponse{
+func (d *DatabaseApplicationService) GetModeConfig(ctx context.Context, req *knowledge.GetModeConfigRequest) (*knowledge.GetModeConfigResponse, error) {
+	return &knowledge.GetModeConfigResponse{
 		Code:          0,
 		Msg:           "success",
 		BotID:         req.BotID,
@@ -102,6 +103,11 @@ func (d *DatabaseApplicationService) ListDatabase(ctx context.Context, req *tabl
 }
 
 func (d *DatabaseApplicationService) GetDatabaseByID(ctx context.Context, req *table.SingleDatabaseRequest) (*table.SingleDatabaseResponse, error) {
+	uid := ctxutil.GetUIDFromCtx(ctx)
+	if uid == nil {
+		return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "session required"))
+	}
+
 	basics := make([]*model.DatabaseBasic, 1)
 	b := &model.DatabaseBasic{
 		ID: req.ID,
@@ -124,6 +130,10 @@ func (d *DatabaseApplicationService) GetDatabaseByID(ctx context.Context, req *t
 
 	if len(res.Databases) == 0 {
 		return nil, fmt.Errorf("database %d not found", req.GetID())
+	}
+
+	if res.Databases[0].CreatorID != *uid {
+		return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "creator id is invalid"))
 	}
 
 	return ConvertDatabaseRes(res.Databases[0]), nil
@@ -352,6 +362,11 @@ func (d *DatabaseApplicationService) UpdateDatabaseRecords(ctx context.Context, 
 }
 
 func (d *DatabaseApplicationService) GetOnlineDatabaseId(ctx context.Context, req *table.GetOnlineDatabaseIdRequest) (*table.GetOnlineDatabaseIdResponse, error) {
+	uid := ctxutil.GetUIDFromCtx(ctx)
+	if uid == nil {
+		return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "session required"))
+	}
+
 	basics := make([]*model.DatabaseBasic, 1)
 	basics[0] = &model.DatabaseBasic{
 		ID:        req.ID,
@@ -367,6 +382,10 @@ func (d *DatabaseApplicationService) GetOnlineDatabaseId(ctx context.Context, re
 
 	if len(res.Databases) == 0 {
 		return nil, fmt.Errorf("database %d not found", req.ID)
+	}
+
+	if res.Databases[0].CreatorID != *uid {
+		return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "creator id is invalid"))
 	}
 
 	return &table.GetOnlineDatabaseIdResponse{
@@ -543,6 +562,12 @@ func (d *DatabaseApplicationService) GetConnectorName(ctx context.Context, req *
 }
 
 func (d *DatabaseApplicationService) GetBotDatabase(ctx context.Context, req *table.GetBotTableRequest) (*table.GetBotTableResponse, error) {
+
+	uid := ctxutil.GetUIDFromCtx(ctx)
+	if uid == nil {
+		return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "session required"))
+	}
+
 	relationResp, err := d.DomainSVC.MGetRelationsByAgentID(ctx, &database.MGetRelationsByAgentIDRequest{
 		AgentID:   req.GetBotID(),
 		TableType: req.GetTableType(),
@@ -562,6 +587,11 @@ func (d *DatabaseApplicationService) GetBotDatabase(ctx context.Context, req *ta
 	})
 	if err != nil {
 		return nil, err
+	}
+	for _, db := range resp.Databases {
+		if db.CreatorID != *uid {
+			return nil, errorx.New(errno.ErrMemoryPermissionCode, errorx.KV("msg", "creator id is invalid"))
+		}
 	}
 
 	return &table.GetBotTableResponse{
@@ -649,6 +679,11 @@ func (d *DatabaseApplicationService) GetDatabaseTableSchema(ctx context.Context,
 		tableType = req.GetTableDataType()
 	}
 
+	err := d.ValidateAccess(ctx, req.GetDatabaseID(), table.TableType_OnlineTable)
+	if err != nil {
+		return nil, err
+	}
+
 	schema, err := d.DomainSVC.GetDatabaseTableSchema(ctx, &database.GetDatabaseTableSchemaRequest{
 		DatabaseID: req.GetDatabaseID(),
 		UserID:     *uid,
@@ -658,7 +693,7 @@ func (d *DatabaseApplicationService) GetDatabaseTableSchema(ctx context.Context,
 			HeaderLineIdx: req.GetTableSheet().GetHeaderLineIdx(),
 			StartLineIdx:  req.GetTableSheet().GetStartLineIdx(),
 		},
-		// 不传默认返回所有数据
+		// All data is returned by default without passing it on.
 		TableDataType: tableType,
 	})
 	if err != nil {

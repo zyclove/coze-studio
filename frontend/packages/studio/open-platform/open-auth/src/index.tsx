@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 export { type PATProps, PatBody } from './components/pat';
 export {
   disabledDate,
@@ -37,3 +37,4 @@ export {
   type PermissionModalProps,
   type PermissionModalRef,
 } from './components/pat/permission-modal';
+export { ConsentConfirmPage } from './components/oauth-consent/confirm';

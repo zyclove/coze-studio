@@ -17,12 +17,14 @@
 package vo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
+	"github.com/coze-dev/coze-studio/backend/bizpkg/debugutil"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/sonic"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
@@ -43,14 +45,14 @@ type Reference struct {
 }
 
 type FieldSource struct {
-	Ref *Reference `json:"ref,omitempty"`
-	Val any        `json:"val,omitempty"`
+	Ref       *Reference `json:"ref,omitempty"`
+	Val       any        `json:"val,omitempty"`
+	FileExtra *FileExtra `json:"file_extra,omitempty"`
 }
 
-type ImplicitNodeDependency struct {
-	NodeID    string
-	FieldPath compose.FieldPath
-	TypeInfo  *TypeInfo
+type FileExtra struct {
+	FileName  *string  `json:"file_name,omitempty"`
+	FileNames []string `json:"file_names,omitempty"`
 }
 
 type TypeInfo struct {
@@ -98,7 +100,7 @@ type wfErr struct {
 
 func (w *wfErr) DebugURL() string {
 	if w.StatusError.Extra() == nil {
-		return fmt.Sprintf(DebugURLTpl, w.exeID, w.spaceID, w.workflowID)
+		return debugutil.GetWorkflowDebugURL(context.Background(), w.workflowID, w.spaceID, w.exeID)
 	}
 
 	debugURL, ok := w.StatusError.Extra()["debug_url"]
@@ -106,7 +108,7 @@ func (w *wfErr) DebugURL() string {
 		return debugURL
 	}
 
-	return fmt.Sprintf(DebugURLTpl, w.exeID, w.spaceID, w.workflowID)
+	return debugutil.GetWorkflowDebugURL(context.Background(), w.workflowID, w.spaceID, w.exeID)
 }
 
 func (w *wfErr) Level() ErrorLevel {
@@ -175,7 +177,7 @@ func WrapError(code int, err error, opts ...errorx.Option) WorkflowError {
 }
 
 func WrapWithDebug(code int, err error, exeID, spaceID, workflowID int64, opts ...errorx.Option) WorkflowError {
-	debugURL := fmt.Sprintf(DebugURLTpl, exeID, spaceID, workflowID)
+	debugURL := debugutil.GetWorkflowDebugURL(context.Background(), workflowID, spaceID, exeID)
 	opts = append(opts, errorx.Extra("debug_url", debugURL))
 	return WrapError(code, err, opts...)
 }

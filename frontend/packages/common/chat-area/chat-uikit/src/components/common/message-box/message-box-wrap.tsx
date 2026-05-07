@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import {
   type PropsWithChildren,
   type FC,
@@ -24,13 +24,13 @@ import {
 
 import classnames from 'classnames';
 import { useClickAway, useHover, useUpdateEffect } from 'ahooks';
-import { ErrorBoundary } from '@coze-arch/logger';
 import {
   Layout,
   UIKitEvents,
   useUiKitEventCenter,
 } from '@coze-common/chat-uikit-shared';
 import { useEventCallback } from '@coze-common/chat-hooks';
+import { ErrorBoundary } from '@coze-arch/logger';
 import { Avatar, Typography } from '@coze-arch/coze-design';
 
 import { UserLabel, UserName } from '../user-label';
@@ -67,7 +67,8 @@ export const MessageBoxWrap: FC<
     classname,
     messageBubbleClassname,
     messageBubbleWrapperClassname,
-    messageBoxWraperClassname,
+    messageBoxWrapperClassname,
+    messageHoverWrapperClassName,
     messageErrorWrapperClassname,
     isHoverShowUserInfo = true,
     layout,
@@ -133,7 +134,7 @@ export const MessageBoxWrap: FC<
 
   const isHovering = useHover(() => wrapRef.current);
 
-  // 适配移动端 移动端没有hover效果，使用点击交互
+  // Adapt mobile end mobile end has no hover effect, use click interaction
   const [hoverContentVisible, setHoverContentVisible] =
     useState<boolean>(false);
 
@@ -165,7 +166,7 @@ export const MessageBoxWrap: FC<
           // chat-uikit-message-box-container chat-uikit-message-box-container-pc
           className={classnames(
             messageBoxContainerVariants({ isMobileLayout }),
-            messageBoxWraperClassname,
+            messageBoxWrapperClassname,
           )}
         >
           <div
@@ -187,7 +188,7 @@ export const MessageBoxWrap: FC<
             // chat-uikit-message-box-container__message
             className="flex-1 max-w-[calc(100%-44px)]"
           >
-            {/* TODO: 不支持一条消息内渲染多个 content */}
+            {/* TODO: Rendering multiple content within a message is not supported */}
             <div
               // chat-uikit-message-box-container__message__message-box
               className="relative flex flex-col w-fit max-w-full"
@@ -292,8 +293,19 @@ export const MessageBoxWrap: FC<
                 >
                   {right}
                 </div>
+                {isHovering || hoverContentVisible ? (
+                  <div
+                    // chat-uikit-message-box-container__message__message-box__hover-container
+                    className={classnames(
+                      'absolute right-[-12px] bottom-[-20px]',
+                      messageHoverWrapperClassName,
+                    )}
+                  >
+                    {hoverContent}
+                  </div>
+                ) : null}
               </div>
-              {/* 对这个 dom 的样式改动前请先阅读上方的 refreshContainerWidthConditionally 方法 */}
+              {/* Please read the refreshContainerWidthConditionally above before changing the style of this dom */}
               <div
                 ref={messageFooterRef}
                 // chat-uikit-message-box-container__message__message-box__footer
@@ -301,14 +313,6 @@ export const MessageBoxWrap: FC<
               >
                 {renderFooter?.(refreshContainerWidthConditionally)}
               </div>
-              {isHovering || hoverContentVisible ? (
-                <div
-                  // chat-uikit-message-box-container__message__message-box__hover-container
-                  className="absolute right-[-12px] bottom-[-20px]"
-                >
-                  {hoverContent}
-                </div>
-              ) : null}
             </div>
           </div>
         </div>

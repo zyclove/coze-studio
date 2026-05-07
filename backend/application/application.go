@@ -20,9 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coze-dev/coze-studio/backend/application/openauth"
-	"github.com/coze-dev/coze-studio/backend/application/template"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crosssearch"
+	"github.com/coze-dev/coze-studio/backend/application/permission"
 
 	"github.com/coze-dev/coze-studio/backend/application/app"
 	"github.com/coze-dev/coze-studio/backend/application/base/appinfra"
@@ -31,40 +29,56 @@ import (
 	"github.com/coze-dev/coze-studio/backend/application/knowledge"
 	"github.com/coze-dev/coze-studio/backend/application/memory"
 	"github.com/coze-dev/coze-studio/backend/application/modelmgr"
+	"github.com/coze-dev/coze-studio/backend/application/openauth"
 	"github.com/coze-dev/coze-studio/backend/application/plugin"
 	"github.com/coze-dev/coze-studio/backend/application/prompt"
 	"github.com/coze-dev/coze-studio/backend/application/search"
 	"github.com/coze-dev/coze-studio/backend/application/shortcutcmd"
 	"github.com/coze-dev/coze-studio/backend/application/singleagent"
+	"github.com/coze-dev/coze-studio/backend/application/template"
 	"github.com/coze-dev/coze-studio/backend/application/upload"
 	"github.com/coze-dev/coze-studio/backend/application/user"
 	"github.com/coze-dev/coze-studio/backend/application/workflow"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossagent"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossagentrun"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossconnector"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossconversation"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossdatabase"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossdatacopy"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossknowledge"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossmessage"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossplugin"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossuser"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossvariables"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossworkflow"
-	agentrunImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/agentrun"
-	connectorImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/connector"
-	conversationImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/conversation"
-	crossuserImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/crossuser"
-	databaseImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/database"
-	dataCopyImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/datacopy"
-	knowledgeImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/knowledge"
-	messageImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/message"
-	pluginImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/plugin"
-	searchImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/search"
-	singleagentImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/singleagent"
-	variablesImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/variables"
-	workflowImpl "github.com/coze-dev/coze-studio/backend/crossdomain/impl/workflow"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/checkpoint"
+	crossagent "github.com/coze-dev/coze-studio/backend/crossdomain/agent"
+	singleagentImpl "github.com/coze-dev/coze-studio/backend/crossdomain/agent/impl"
+	crossagentrun "github.com/coze-dev/coze-studio/backend/crossdomain/agentrun"
+	agentrunImpl "github.com/coze-dev/coze-studio/backend/crossdomain/agentrun/impl"
+	crossapp "github.com/coze-dev/coze-studio/backend/crossdomain/app"
+	appImpl "github.com/coze-dev/coze-studio/backend/crossdomain/app/impl"
+	crossconnector "github.com/coze-dev/coze-studio/backend/crossdomain/connector"
+	connectorImpl "github.com/coze-dev/coze-studio/backend/crossdomain/connector/impl"
+	crossconversation "github.com/coze-dev/coze-studio/backend/crossdomain/conversation"
+	conversationImpl "github.com/coze-dev/coze-studio/backend/crossdomain/conversation/impl"
+	crossdatabase "github.com/coze-dev/coze-studio/backend/crossdomain/database"
+	databaseImpl "github.com/coze-dev/coze-studio/backend/crossdomain/database/impl"
+	crossdatacopy "github.com/coze-dev/coze-studio/backend/crossdomain/datacopy"
+	dataCopyImpl "github.com/coze-dev/coze-studio/backend/crossdomain/datacopy/impl"
+	crossknowledge "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge"
+	knowledgeImpl "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/impl"
+	crossmessage "github.com/coze-dev/coze-studio/backend/crossdomain/message"
+	messageImpl "github.com/coze-dev/coze-studio/backend/crossdomain/message/impl"
+	crosspermission "github.com/coze-dev/coze-studio/backend/crossdomain/permission"
+	permissionImpl "github.com/coze-dev/coze-studio/backend/crossdomain/permission/impl"
+	crossplugin "github.com/coze-dev/coze-studio/backend/crossdomain/plugin"
+	pluginImpl "github.com/coze-dev/coze-studio/backend/crossdomain/plugin/impl"
+	crosssearch "github.com/coze-dev/coze-studio/backend/crossdomain/search"
+	searchImpl "github.com/coze-dev/coze-studio/backend/crossdomain/search/impl"
+	crossupload "github.com/coze-dev/coze-studio/backend/crossdomain/upload"
+	uploadImpl "github.com/coze-dev/coze-studio/backend/crossdomain/upload/impl"
+	crossuser "github.com/coze-dev/coze-studio/backend/crossdomain/user"
+	crossuserImpl "github.com/coze-dev/coze-studio/backend/crossdomain/user/impl"
+	crossvariables "github.com/coze-dev/coze-studio/backend/crossdomain/variables"
+	variablesImpl "github.com/coze-dev/coze-studio/backend/crossdomain/variables/impl"
+	crossworkflow "github.com/coze-dev/coze-studio/backend/crossdomain/workflow"
+	workflowImpl "github.com/coze-dev/coze-studio/backend/crossdomain/workflow/impl"
+	"github.com/coze-dev/coze-studio/backend/infra/checkpoint"
+	"github.com/coze-dev/coze-studio/backend/infra/document/progressbar"
+	progressBarImpl "github.com/coze-dev/coze-studio/backend/infra/document/progressbar/impl/progressbar"
+	"github.com/coze-dev/coze-studio/backend/infra/eventbus"
+	implEventbus "github.com/coze-dev/coze-studio/backend/infra/eventbus/impl"
+	"github.com/coze-dev/coze-studio/backend/infra/sqlparser"
+	sqlparserImpl "github.com/coze-dev/coze-studio/backend/infra/sqlparser/impl/sqlparser"
+	"github.com/coze-dev/coze-studio/backend/pkg/ctxcache"
 )
 
 type eventbusImpl struct {
@@ -81,6 +95,9 @@ type basicServices struct {
 	promptSVC    *prompt.PromptApplicationService
 	templateSVC  *template.ApplicationService
 	openAuthSVC  *openauth.OpenAuthApplicationService
+	uploadSVC    *upload.UploadService
+
+	permissionSVC *permission.PermissionApplicationService
 }
 
 type primaryServices struct {
@@ -92,6 +109,7 @@ type primaryServices struct {
 	knowledgeSVC *knowledge.KnowledgeApplicationService
 	workflowSVC  *workflow.ApplicationService
 	shortcutSVC  *shortcutcmd.ShortcutCmdApplicationService
+	appSVC       *app.APPApplicationService
 }
 
 type complexServices struct {
@@ -103,10 +121,14 @@ type complexServices struct {
 }
 
 func Init(ctx context.Context) (err error) {
+	ctx = ctxcache.Init(ctx)
 	infra, err := appinfra.Init(ctx)
 	if err != nil {
 		return err
 	}
+
+	progressbar.New = progressBarImpl.NewProgressBar
+	sqlparser.New = sqlparserImpl.NewSQLParser
 
 	eventbus := initEventBus(infra)
 
@@ -125,25 +147,32 @@ func Init(ctx context.Context) (err error) {
 		return fmt.Errorf("Init - initVitalServices failed, err: %v", err)
 	}
 
+	// Initialize permission service first as it's required by other services
+	crosspermission.SetDefaultSVC(permissionImpl.InitDomainService(basicServices.permissionSVC.DomainSVC))
+
 	crossconnector.SetDefaultSVC(connectorImpl.InitDomainService(basicServices.connectorSVC.DomainSVC))
 	crossdatabase.SetDefaultSVC(databaseImpl.InitDomainService(primaryServices.memorySVC.DatabaseDomainSVC))
 	crossknowledge.SetDefaultSVC(knowledgeImpl.InitDomainService(primaryServices.knowledgeSVC.DomainSVC))
-	crossplugin.SetDefaultSVC(pluginImpl.InitDomainService(primaryServices.pluginSVC.DomainSVC))
+	crossplugin.SetDefaultSVC(pluginImpl.InitDomainService(primaryServices.pluginSVC.DomainSVC, infra.OSS))
 	crossvariables.SetDefaultSVC(variablesImpl.InitDomainService(primaryServices.memorySVC.VariablesDomainSVC))
 	crossworkflow.SetDefaultSVC(workflowImpl.InitDomainService(primaryServices.workflowSVC.DomainSVC))
 	crossconversation.SetDefaultSVC(conversationImpl.InitDomainService(complexServices.conversationSVC.ConversationDomainSVC))
 	crossmessage.SetDefaultSVC(messageImpl.InitDomainService(complexServices.conversationSVC.MessageDomainSVC))
 	crossagentrun.SetDefaultSVC(agentrunImpl.InitDomainService(complexServices.conversationSVC.AgentRunDomainSVC))
-	crossagent.SetDefaultSVC(singleagentImpl.InitDomainService(complexServices.singleAgentSVC.DomainSVC, infra.ImageXClient))
+	crossagent.SetDefaultSVC(singleagentImpl.InitDomainService(complexServices.singleAgentSVC.DomainSVC))
 	crossuser.SetDefaultSVC(crossuserImpl.InitDomainService(basicServices.userSVC.DomainSVC))
 	crossdatacopy.SetDefaultSVC(dataCopyImpl.InitDomainService(basicServices.infra))
 	crosssearch.SetDefaultSVC(searchImpl.InitDomainService(complexServices.searchSVC.DomainSVC))
+	crossupload.SetDefaultSVC(uploadImpl.InitDomainService(basicServices.uploadSVC.UploadSVC))
+
+	crossapp.SetDefaultSVC(appImpl.InitDomainService(complexServices.appSVC.DomainSVC))
 
 	return nil
 }
 
 func initEventBus(infra *appinfra.AppDependencies) *eventbusImpl {
 	e := &eventbusImpl{}
+	eventbus.SetDefaultSVC(implEventbus.NewConsumerService())
 	e.resourceEventBus = search.NewResourceEventBus(infra.ResourceEventProducer)
 	e.projectEventBus = search.NewProjectEventBus(infra.AppEventProducer)
 
@@ -152,17 +181,19 @@ func initEventBus(infra *appinfra.AppDependencies) *eventbusImpl {
 
 // initBasicServices init basic services that only depends on infra.
 func initBasicServices(ctx context.Context, infra *appinfra.AppDependencies, e *eventbusImpl) (*basicServices, error) {
-	upload.InitService(infra.TOSClient, infra.CacheCli)
+	uploadSVC := upload.InitService(&upload.UploadComponents{Cache: infra.CacheCli, Oss: infra.OSS, DB: infra.DB, Idgen: infra.IDGenSVC})
 	openAuthSVC := openauth.InitService(infra.DB, infra.IDGenSVC)
 	promptSVC := prompt.InitService(infra.DB, infra.IDGenSVC, e.resourceEventBus)
-	modelMgrSVC := modelmgr.InitService(infra.ModelMgr, infra.TOSClient)
-	connectorSVC := connector.InitService(infra.TOSClient)
-	userSVC := user.InitService(ctx, infra.DB, infra.TOSClient, infra.IDGenSVC)
+	modelMgrSVC := modelmgr.InitService(infra.OSS)
+	connectorSVC := connector.InitService(infra.OSS)
+	userSVC := user.InitService(ctx, infra.DB, infra.OSS, infra.IDGenSVC)
 	templateSVC := template.InitService(ctx, &template.ServiceComponents{
 		DB:      infra.DB,
 		IDGen:   infra.IDGenSVC,
-		Storage: infra.TOSClient,
+		Storage: infra.OSS,
 	})
+
+	permissionSVC := permission.InitService(&permission.ServiceComponents{})
 
 	return &basicServices{
 		infra:        infra,
@@ -173,6 +204,9 @@ func initBasicServices(ctx context.Context, infra *appinfra.AppDependencies, e *
 		promptSVC:    promptSVC,
 		templateSVC:  templateSVC,
 		openAuthSVC:  openAuthSVC,
+		uploadSVC:    uploadSVC,
+
+		permissionSVC: permissionSVC,
 	}, nil
 }
 
@@ -185,13 +219,18 @@ func initPrimaryServices(ctx context.Context, basicServices *basicServices) (*pr
 
 	memorySVC := memory.InitService(basicServices.toMemoryServiceComponents())
 
-	knowledgeSVC, err := knowledge.InitService(basicServices.toKnowledgeServiceComponents(memorySVC))
+	knowledgeSVC, err := knowledge.InitService(ctx,
+		basicServices.toKnowledgeServiceComponents(memorySVC),
+		basicServices.eventbus.resourceEventBus)
 	if err != nil {
 		return nil, err
 	}
 
-	workflowDomainSVC := workflow.InitService(
+	workflowDomainSVC, err := workflow.InitService(ctx,
 		basicServices.toWorkflowServiceComponents(pluginSVC, memorySVC, knowledgeSVC))
+	if err != nil {
+		return nil, err
+	}
 
 	shortcutSVC := shortcutcmd.InitService(basicServices.infra.DB, basicServices.infra.IDGenSVC)
 
@@ -239,21 +278,25 @@ func (b *basicServices) toPluginServiceComponents() *plugin.ServiceComponents {
 		IDGen:    b.infra.IDGenSVC,
 		DB:       b.infra.DB,
 		EventBus: b.eventbus.resourceEventBus,
-		OSS:      b.infra.TOSClient,
+		OSS:      b.infra.OSS,
 		UserSVC:  b.userSVC.DomainSVC,
+		CacheCli: b.infra.CacheCli,
 	}
 }
 
 func (b *basicServices) toKnowledgeServiceComponents(memoryService *memory.MemoryApplicationServices) *knowledge.ServiceComponents {
 	return &knowledge.ServiceComponents{
-		DB:       b.infra.DB,
-		IDGenSVC: b.infra.IDGenSVC,
-		Storage:  b.infra.TOSClient,
-		RDB:      memoryService.RDBDomainSVC,
-		ImageX:   b.infra.ImageXClient,
-		ES:       b.infra.ESClient,
-		EventBus: b.eventbus.resourceEventBus,
-		CacheCli: b.infra.CacheCli,
+		DB:                  b.infra.DB,
+		IDGen:               b.infra.IDGenSVC,
+		RDB:                 memoryService.RDBDomainSVC,
+		Producer:            b.infra.KnowledgeEventProducer,
+		SearchStoreManagers: b.infra.SearchStoreManagers,
+		ParseManager:        b.infra.ParserManager,
+		Storage:             b.infra.OSS,
+		Rewriter:            b.infra.Rewriter,
+		Reranker:            b.infra.Reranker,
+		NL2Sql:              b.infra.NL2SQL,
+		CacheCli:            b.infra.CacheCli,
 	}
 }
 
@@ -262,7 +305,7 @@ func (b *basicServices) toMemoryServiceComponents() *memory.ServiceComponents {
 		IDGen:                  b.infra.IDGenSVC,
 		DB:                     b.infra.DB,
 		EventBus:               b.eventbus.resourceEventBus,
-		TosClient:              b.infra.TOSClient,
+		TosClient:              b.infra.OSS,
 		ResourceDomainNotifier: b.eventbus.resourceEventBus,
 		CacheCli:               b.infra.CacheCli,
 	}
@@ -270,19 +313,19 @@ func (b *basicServices) toMemoryServiceComponents() *memory.ServiceComponents {
 
 func (b *basicServices) toWorkflowServiceComponents(pluginSVC *plugin.PluginApplicationService, memorySVC *memory.MemoryApplicationServices, knowledgeSVC *knowledge.KnowledgeApplicationService) *workflow.ServiceComponents {
 	return &workflow.ServiceComponents{
-		IDGen:              b.infra.IDGenSVC,
-		DB:                 b.infra.DB,
-		Cache:              b.infra.CacheCli,
-		Tos:                b.infra.TOSClient,
-		ImageX:             b.infra.ImageXClient,
-		DatabaseDomainSVC:  memorySVC.DatabaseDomainSVC,
-		VariablesDomainSVC: memorySVC.VariablesDomainSVC,
-		PluginDomainSVC:    pluginSVC.DomainSVC,
-		KnowledgeDomainSVC: knowledgeSVC.DomainSVC,
-		ModelManager:       b.infra.ModelMgr,
-		DomainNotifier:     b.eventbus.resourceEventBus,
-		CPStore:            checkpoint.NewRedisStore(b.infra.CacheCli),
-		CodeRunner:         b.infra.CodeRunner,
+		IDGen:                    b.infra.IDGenSVC,
+		DB:                       b.infra.DB,
+		Cache:                    b.infra.CacheCli,
+		Tos:                      b.infra.OSS,
+		ImageX:                   b.infra.ImageXClient,
+		DatabaseDomainSVC:        memorySVC.DatabaseDomainSVC,
+		VariablesDomainSVC:       memorySVC.VariablesDomainSVC,
+		PluginDomainSVC:          pluginSVC.DomainSVC,
+		KnowledgeDomainSVC:       knowledgeSVC.DomainSVC,
+		DomainNotifier:           b.eventbus.resourceEventBus,
+		CPStore:                  checkpoint.NewRedisStore(b.infra.CacheCli),
+		CodeRunner:               b.infra.CodeRunner,
+		WorkflowBuildInChatModel: b.infra.WorkflowBuildInChatModel,
 	}
 }
 
@@ -291,9 +334,8 @@ func (p *primaryServices) toSingleAgentServiceComponents() *singleagent.ServiceC
 		IDGen:                p.basicServices.infra.IDGenSVC,
 		DB:                   p.basicServices.infra.DB,
 		Cache:                p.basicServices.infra.CacheCli,
-		TosClient:            p.basicServices.infra.TOSClient,
+		TosClient:            p.basicServices.infra.OSS,
 		ImageX:               p.basicServices.infra.ImageXClient,
-		ModelMgr:             p.infra.ModelMgr,
 		UserDomainSVC:        p.basicServices.userSVC.DomainSVC,
 		EventBus:             p.basicServices.eventbus.projectEventBus,
 		DatabaseDomainSVC:    p.memorySVC.DatabaseDomainSVC,
@@ -313,7 +355,7 @@ func (p *primaryServices) toSearchServiceComponents(singleAgentSVC *singleagent.
 	return &search.ServiceComponents{
 		DB:                   infra.DB,
 		Cache:                infra.CacheCli,
-		TOS:                  infra.TOSClient,
+		TOS:                  infra.OSS,
 		ESClient:             infra.ESClient,
 		ProjectEventBus:      p.basicServices.eventbus.projectEventBus,
 		SingleAgentDomainSVC: singleAgentSVC.DomainSVC,
@@ -334,9 +376,8 @@ func (p *primaryServices) toAPPServiceComponents() *app.ServiceComponents {
 	return &app.ServiceComponents{
 		IDGen:           infra.IDGenSVC,
 		DB:              infra.DB,
-		OSS:             infra.TOSClient,
+		OSS:             infra.OSS,
 		CacheCli:        infra.CacheCli,
-		ModelMgr:        infra.ModelMgr,
 		ProjectEventBus: basic.eventbus.projectEventBus,
 		UserSVC:         basic.userSVC.DomainSVC,
 		ConnectorSVC:    basic.connectorSVC.DomainSVC,
@@ -350,7 +391,7 @@ func (p *primaryServices) toConversationComponents(singleAgentSVC *singleagent.S
 	return &conversation.ServiceComponents{
 		DB:                   infra.DB,
 		IDGen:                infra.IDGenSVC,
-		TosClient:            infra.TOSClient,
+		TosClient:            infra.OSS,
 		ImageX:               infra.ImageXClient,
 		SingleAgentDomainSVC: singleAgentSVC.DomainSVC,
 	}

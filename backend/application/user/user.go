@@ -19,18 +19,21 @@ package user
 import (
 	"context"
 	"net/mail"
+	"slices"
 	"strconv"
+	"strings"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/developer_api"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/playground"
+	"github.com/coze-dev/coze-studio/backend/api/model/app/developer_api"
 	"github.com/coze-dev/coze-studio/backend/api/model/passport"
+	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	"github.com/coze-dev/coze-studio/backend/bizpkg/config"
 	"github.com/coze-dev/coze-studio/backend/domain/user/entity"
 	user "github.com/coze-dev/coze-studio/backend/domain/user/service"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
-	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
+	langSlices "github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
 
@@ -41,9 +44,9 @@ type UserApplicationService struct {
 	DomainSVC user.User
 }
 
-// 添加一个简单的 email 验证函数
+// Add a simple email verification function
 func isValidEmail(email string) bool {
-	// 如果 email 字符串格式不正确，它会返回一个 error
+	// If the email string is not in the correct format, it will return an error.
 	_, err := mail.ParseAddress(email)
 	return err == nil
 }
@@ -51,12 +54,22 @@ func isValidEmail(email string) bool {
 func (u *UserApplicationService) PassportWebEmailRegisterV2(ctx context.Context, locale string, req *passport.PassportWebEmailRegisterV2PostRequest) (
 	resp *passport.PassportWebEmailRegisterV2PostResponse, sessionKey string, err error,
 ) {
-	// 验证 email 格式是否合法
+	// Verify that the email format is legitimate
 	if !isValidEmail(req.GetEmail()) {
 		return nil, "", errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "Invalid email"))
 	}
 
-	userInfo, err := u.DomainSVC.Create(ctx, &user.CreateUserRequest{
+	baseConf, err := config.Base().GetBaseConfig(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Allow Register Checker
+	if !u.allowRegisterChecker(req.GetEmail(), baseConf) {
+		return nil, "", errorx.New(errno.ErrNotAllowedRegisterCode)
+	}
+
+	_, err = u.DomainSVC.Create(ctx, &user.CreateUserRequest{
 		Email:    req.GetEmail(),
 		Password: req.GetPassword(),
 
@@ -66,7 +79,7 @@ func (u *UserApplicationService) PassportWebEmailRegisterV2(ctx context.Context,
 		return nil, "", err
 	}
 
-	userInfo, err = u.DomainSVC.Login(ctx, req.GetEmail(), req.GetPassword())
+	userInfo, err := u.DomainSVC.Login(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		return nil, "", err
 	}
@@ -77,7 +90,20 @@ func (u *UserApplicationService) PassportWebEmailRegisterV2(ctx context.Context,
 	}, userInfo.SessionKey, nil
 }
 
-// PassportWebLogoutGet 处理用户登出请求
+func (u *UserApplicationService) allowRegisterChecker(email string, baseConf *config.BasicConfiguration) bool {
+	if !baseConf.DisableUserRegistration {
+		return true
+	}
+
+	allowedEmails := baseConf.AllowRegistrationEmail
+	if allowedEmails == "" {
+		return false
+	}
+
+	return slices.Contains(strings.Split(allowedEmails, ","), strings.ToLower(email))
+}
+
+// PassportWebLogoutGet handle user logout requests
 func (u *UserApplicationService) PassportWebLogoutGet(ctx context.Context, req *passport.PassportWebLogoutGetRequest) (
 	resp *passport.PassportWebLogoutGetResponse, err error,
 ) {
@@ -93,7 +119,7 @@ func (u *UserApplicationService) PassportWebLogoutGet(ctx context.Context, req *
 	}, nil
 }
 
-// PassportWebEmailLoginPost 处理用户邮箱登录请求
+// PassportWebEmailLoginPost handle user email login requests
 func (u *UserApplicationService) PassportWebEmailLoginPost(ctx context.Context, req *passport.PassportWebEmailLoginPostRequest) (
 	resp *passport.PassportWebEmailLoginPostResponse, sessionKey string, err error,
 ) {
@@ -111,6 +137,14 @@ func (u *UserApplicationService) PassportWebEmailLoginPost(ctx context.Context, 
 func (u *UserApplicationService) PassportWebEmailPasswordResetGet(ctx context.Context, req *passport.PassportWebEmailPasswordResetGetRequest) (
 	resp *passport.PassportWebEmailPasswordResetGetResponse, err error,
 ) {
+	session := ctxutil.GetUserSessionFromCtx(ctx)
+	if session == nil {
+		return nil, errorx.New(errno.ErrUserAuthenticationFailed, errorx.KV("reason", "session data is nil"))
+	}
+	if !strings.EqualFold(session.UserEmail, req.GetEmail()) {
+		return nil, errorx.New(errno.ErrUserPermissionCode, errorx.KV("msg", "email mismatch"))
+	}
+
 	err = u.DomainSVC.ResetPassword(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		return nil, err
@@ -137,11 +171,11 @@ func (u *UserApplicationService) PassportAccountInfoV2(ctx context.Context, req 
 	}, nil
 }
 
-// UserUpdateAvatar 更新用户头像
+// UserUpdateAvatar Update user avatar
 func (u *UserApplicationService) UserUpdateAvatar(ctx context.Context, mimeType string, req *passport.UserUpdateAvatarRequest) (
 	resp *passport.UserUpdateAvatarResponse, err error,
 ) {
-	// 根据 MIME type 获取文件后缀
+	// Get file suffix by MIME type
 	var ext string
 	switch mimeType {
 	case "image/jpeg", "image/jpg":
@@ -172,7 +206,7 @@ func (u *UserApplicationService) UserUpdateAvatar(ctx context.Context, mimeType 
 	}, nil
 }
 
-// UserUpdateProfile 更新用户资料
+// UserUpdateProfile Update user profile
 func (u *UserApplicationService) UserUpdateProfile(ctx context.Context, req *passport.UserUpdateProfileRequest) (
 	resp *passport.UserUpdateProfileResponse, err error,
 ) {
@@ -204,7 +238,7 @@ func (u *UserApplicationService) GetSpaceListV2(ctx context.Context, req *playgr
 		return nil, err
 	}
 
-	botSpaces := slices.Transform(spaces, func(space *entity.Space) *playground.BotSpaceV2 {
+	botSpaces := langSlices.Transform(spaces, func(space *entity.Space) *playground.BotSpaceV2 {
 		return &playground.BotSpaceV2{
 			ID:          space.ID,
 			Name:        space.Name,
@@ -230,7 +264,7 @@ func (u *UserApplicationService) GetSpaceListV2(ctx context.Context, req *playgr
 func (u *UserApplicationService) MGetUserBasicInfo(ctx context.Context, req *playground.MGetUserBasicInfoRequest) (
 	resp *playground.MGetUserBasicInfoResponse, err error,
 ) {
-	userIDs, err := slices.TransformWithErrorCheck(req.GetUserIds(), func(s string) (int64, error) {
+	userIDs, err := langSlices.TransformWithErrorCheck(req.GetUserIds(), func(s string) (int64, error) {
 		return strconv.ParseInt(s, 10, 64)
 	})
 	if err != nil {
@@ -243,7 +277,7 @@ func (u *UserApplicationService) MGetUserBasicInfo(ctx context.Context, req *pla
 	}
 
 	return &playground.MGetUserBasicInfoResponse{
-		UserBasicInfoMap: slices.ToMap(userInfos, func(userInfo *entity.User) (string, *playground.UserBasicInfo) {
+		UserBasicInfoMap: langSlices.ToMap(userInfos, func(userInfo *entity.User) (string, *playground.UserBasicInfo) {
 			return strconv.FormatInt(userInfo.UserID, 10), userDo2PlaygroundTo(userInfo)
 		}),
 		Code: 0,

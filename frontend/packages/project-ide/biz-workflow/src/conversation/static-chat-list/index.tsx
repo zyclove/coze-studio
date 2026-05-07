@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { scroller } from 'react-scroll';
 import React, { useState } from 'react';
 
@@ -30,7 +30,7 @@ import { type ProjectConversation } from '@coze-arch/bot-api/workflow_api';
 import { TitleWithTooltip } from '../title-with-tooltip';
 import commonStyles from '../conversation-content/index.module.less';
 import { EditInput } from '../conversation-content/edit-input';
-import { DEFAULT_UNIQUE_ID, type ErrorCode } from '../constants';
+import { type ErrorCode } from '../constants';
 
 import s from './index.module.less';
 
@@ -59,7 +59,7 @@ export const StaticChatList = ({
   renderCreateInput: () => React.ReactNode;
   handleCreateInput?: () => void;
 }) => {
-  // 存储 session_id
+  // Storage session_id
   const [editingUniqueId, setEditingUniqueId] = useState('');
 
   const handleEditSession = (inputStr?: string, error?: ErrorCode) => {
@@ -74,8 +74,8 @@ export const StaticChatList = ({
   };
 
   /**
-   * ux @wangwenbo.me 设计，default 放在首位，
-   * 剩余的接口返回按照创建先后顺序倒序排序（后创建的放前边）
+   * UX @wangwenbo.me design, default first,
+   * The remaining interfaces are returned in reverse order according to the order in which they were created (the ones created later are placed first).
    */
   return (
     <>
@@ -140,9 +140,7 @@ export const StaticChatList = ({
                 {item.conversation_name}
               </Text>
             )}
-            {editingUniqueId === item.unique_id ||
-            item.unique_id === DEFAULT_UNIQUE_ID ||
-            !canEdit ? null : (
+            {editingUniqueId === item.unique_id || !canEdit ? null : (
               <div className={commonStyles.icons}>
                 <IconButton
                   size="small"
@@ -153,7 +151,7 @@ export const StaticChatList = ({
                     handleSessionVisible(item.unique_id);
                   }}
                 />
-                {/* 默认会话不可删除 */}
+                {/* Default session cannot be deleted */}
                 <IconButton
                   size="small"
                   color="secondary"

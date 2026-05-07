@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"sync"
 
-	knowledgeModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
 	"github.com/coze-dev/coze-studio/backend/api/model/resource"
 	"github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	knowledgeModel "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
 	"github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	search "github.com/coze-dev/coze-studio/backend/domain/search/service"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
@@ -73,7 +73,7 @@ func (s *SearchApplicationService) LibraryResourceList(ctx context.Context, req 
 		Limit:               req.GetSize(),
 	}
 
-	// 设置用户过滤
+	// Set up user filtering
 	if req.IsSetUserFilter() && req.GetUserFilter() > 0 {
 		searchReq.OwnerID = ptr.From(userID)
 	}
@@ -86,29 +86,46 @@ func (s *SearchApplicationService) LibraryResourceList(ctx context.Context, req 
 	lock := sync.Mutex{}
 	tasks := taskgroup.NewUninterruptibleTaskGroup(ctx, 10)
 	resources := make([]*common.ResourceInfo, len(searchResp.Data))
-	for idx := range searchResp.Data {
-		v := searchResp.Data[idx]
-		index := idx
-		tasks.Go(func() error {
-			ri, err := s.packResource(ctx, v)
-			if err != nil {
-				logs.CtxErrorf(ctx, "[LibraryResourceList] packResource failed, will ignore resID: %d, Name : %s, resType: %d, err: %v",
-					v.ResID, v.GetName(), v.ResType, err)
-				return err
-			}
+	if len(searchResp.Data) > 1 {
+		for idx := range searchResp.Data[1:] {
+			index := idx + 1
+			v := searchResp.Data[index]
+			tasks.Go(func() error {
+				ri, err := s.packResource(ctx, v)
+				if err != nil {
+					logs.CtxErrorf(ctx, "[LibraryResourceList] packResource failed, will ignore resID: %d, Name : %s, resType: %d, err: %v",
+						v.ResID, v.GetName(), v.ResType, err)
+					return err
+				}
 
-			lock.Lock()
-			defer lock.Unlock()
-			resources[index] = ri
-			return nil
-		})
+				lock.Lock()
+				defer lock.Unlock()
+				resources[index] = ri
+				return nil
+			})
+		}
+	}
+	if len(searchResp.Data) != 0 {
+		ri, err := s.packResource(ctx, searchResp.Data[0])
+		if err != nil {
+			return nil, err
+		}
+		lock.Lock()
+		resources[0] = ri
+		lock.Unlock()
+	}
+	err = tasks.Wait()
+	if err != nil {
+		return nil, err
 	}
 
-	_ = tasks.Wait()
 	filterResource := make([]*common.ResourceInfo, 0)
 	for _, res := range resources {
 		if res == nil {
 			continue
+		}
+		if res.CreatorID != nil && *res.CreatorID != *userID {
+			return nil, errorx.New(errno.ErrSearchPermissionCode, errorx.KV("msg", "user can't search resources created by themselves"))
 		}
 		filterResource = append(filterResource, res)
 	}
@@ -262,6 +279,12 @@ func (s *SearchApplicationService) getAPPAllResources(ctx context.Context, appID
 }
 
 func (s *SearchApplicationService) packAPPResources(ctx context.Context, resources []*entity.ResourceDocument) ([]*common.ProjectResourceGroup, error) {
+
+	uid := ctxutil.GetUIDFromCtx(ctx)
+	if uid == nil {
+		return nil, errorx.New(errno.ErrSearchPermissionCode, errorx.KV(errno.PluginMsgKey, "session is required"))
+	}
+
 	workflowGroup := &common.ProjectResourceGroup{
 		GroupType:    common.ProjectResourceGroupType_Workflow,
 		ResourceList: []*common.ProjectResourceInfo{},
@@ -279,6 +302,10 @@ func (s *SearchApplicationService) packAPPResources(ctx context.Context, resourc
 	tasks := taskgroup.NewUninterruptibleTaskGroup(ctx, 10)
 	for idx := range resources {
 		v := resources[idx]
+
+		if v.OwnerID != nil && *v.OwnerID != *uid {
+			return nil, errorx.New(errno.ErrSearchPermissionCode, errorx.KV("msg", "user can't search resources created by others"))
+		}
 
 		tasks.Go(func() error {
 			ri, err := s.packProjectResource(ctx, v)
@@ -340,8 +367,8 @@ func (s *SearchApplicationService) packProjectResource(ctx context.Context, reso
 			logs.CtxErrorf(ctx, "GetDataInfo failed, resID=%d, resType=%d, err=%v",
 				resource.ResID, resource.ResType, err)
 		} else {
-			info.BizResStatus = ptr.Of(*di.status)
-			if *di.status == int32(knowledgeModel.KnowledgeStatusDisable) {
+			info.BizResStatus = di.status
+			if di.status != nil && *di.status == int32(knowledgeModel.KnowledgeStatusDisable) {
 				actions := slices.Clone(info.Actions)
 				for _, a := range actions {
 					if a.Key == common.ProjectResourceActionKey_Disable {

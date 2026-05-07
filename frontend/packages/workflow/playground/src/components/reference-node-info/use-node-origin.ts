@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { useMemo } from 'react';
 
 import { type FlowNodeEntity } from '@flowgram-adapter/free-layout-editor';
 import { WorkflowNodeData } from '@coze-workflow/nodes';
 import { type StandardNodeType } from '@coze-workflow/base';
+import { PluginFrom } from '@coze-arch/bot-api/playground_api';
 
 import { isApiNode, isSubWorkflowNode } from '@/services/node-version-service';
 
@@ -27,7 +28,7 @@ export const useNodeOrigin = (node: FlowNodeEntity) => {
   const isApi = useMemo(() => isApiNode(node), [node]);
 
   /**
-   * 是否是引用节点
+   * Is it a reference node?
    */
   const isReference = useMemo(
     () => isApi || isSubWorkflowNode(node),
@@ -35,28 +36,28 @@ export const useNodeOrigin = (node: FlowNodeEntity) => {
   );
 
   /**
-   * 是否来自项目
-   * 1. 节点存在 projectId
+   * Is it from the project?
+   * 1. Node has projectId
    */
   const isFromProject =
     isReference &&
     !!nodeData.getNodeData<StandardNodeType.SubWorkflow>().projectId;
 
   /**
-   * 是否来自商店
-   * 1. 插件节点
-   * 2. 节点不来自项目
-   * 3. 存在上架状态
+   * Is it from the store?
+   * 1. Plugin Node
+   * 2. Nodes do not come from the project
+   * 3. There is a shelf status
    */
-  const isFromStore =
-    isApi &&
-    !isFromProject &&
-    !!nodeData.getNodeData<StandardNodeType.Api>().pluginProductStatus;
+  const apiData = nodeData.getNodeData<StandardNodeType.Api>();
+  const isFromStore = isApi && !isFromProject && !!apiData.pluginProductStatus;
+  const isFromCozeCnStore =
+    isApi && !isFromProject && apiData.plugin_from === PluginFrom.FromSaas;
 
   /**
-   * 是否来自资源库
-   * 1. 引用类型的节点
-   * 2. 不来自于项目或者商店
+   * Is it from the resource library?
+   * 1. Nodes of reference type
+   * 2. Not from the project or store
    */
   const isFromLibrary = isReference && !isFromProject && !isFromStore;
 
@@ -64,5 +65,6 @@ export const useNodeOrigin = (node: FlowNodeEntity) => {
     isApi,
     isFromStore,
     isFromLibrary,
+    isFromCozeCnStore,
   };
 };

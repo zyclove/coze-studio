@@ -31,8 +31,9 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+
 	"github.com/bytedance/mockey"
-	model2 "github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/schema"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/client"
@@ -40,111 +41,139 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/sse"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	modelknowledge "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
-	plugin2 "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/plugin"
-	pluginmodel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/plugin"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/playground"
-	pluginAPI "github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/plugin_develop"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/workflow"
+	"github.com/coze-dev/coze-studio/backend/api/model/playground"
+	pluginAPI "github.com/coze-dev/coze-studio/backend/api/model/plugin_develop"
+	"github.com/coze-dev/coze-studio/backend/api/model/workflow"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	appknowledge "github.com/coze-dev/coze-studio/backend/application/knowledge"
 	appmemory "github.com/coze-dev/coze-studio/backend/application/memory"
 	appplugin "github.com/coze-dev/coze-studio/backend/application/plugin"
 	"github.com/coze-dev/coze-studio/backend/application/user"
 	appworkflow "github.com/coze-dev/coze-studio/backend/application/workflow"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossuser"
-	plugin3 "github.com/coze-dev/coze-studio/backend/crossdomain/workflow/plugin"
+	"github.com/coze-dev/coze-studio/backend/bizpkg/llm/modelbuilder"
+	crossagentrun "github.com/coze-dev/coze-studio/backend/crossdomain/agentrun"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/agentrun/agentrunmock"
+	crossmessage "github.com/coze-dev/coze-studio/backend/crossdomain/message"
+	message0 "github.com/coze-dev/coze-studio/backend/crossdomain/message"
+	message "github.com/coze-dev/coze-studio/backend/crossdomain/message/model"
+	workflowModel "github.com/coze-dev/coze-studio/backend/crossdomain/workflow/model"
+
+	crossconversation "github.com/coze-dev/coze-studio/backend/crossdomain/conversation"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/conversation/conversationmock"
+	crossdatabase "github.com/coze-dev/coze-studio/backend/crossdomain/database"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/database/databasemock"
+	crossknowledge "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/knowledgemock"
+	knowledge "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/message/messagemock"
+	crosspermission "github.com/coze-dev/coze-studio/backend/crossdomain/permission"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/permission/permissionmock"
+	crossplugin "github.com/coze-dev/coze-studio/backend/crossdomain/plugin"
+	pluginImpl "github.com/coze-dev/coze-studio/backend/crossdomain/plugin/impl"
+	pluginmodel "github.com/coze-dev/coze-studio/backend/crossdomain/plugin/model"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/plugin/pluginmock"
+	crossuser "github.com/coze-dev/coze-studio/backend/crossdomain/user"
+	agententity "github.com/coze-dev/coze-studio/backend/domain/conversation/agentrun/entity"
+	conventity "github.com/coze-dev/coze-studio/backend/domain/conversation/conversation/entity"
 	entity4 "github.com/coze-dev/coze-studio/backend/domain/memory/database/entity"
 	entity2 "github.com/coze-dev/coze-studio/backend/domain/openauth/openapiauth/entity"
+	permission "github.com/coze-dev/coze-studio/backend/domain/permission"
+	"github.com/coze-dev/coze-studio/backend/domain/plugin/dto"
 	entity3 "github.com/coze-dev/coze-studio/backend/domain/plugin/entity"
 	entity5 "github.com/coze-dev/coze-studio/backend/domain/plugin/entity"
+	search "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	userentity "github.com/coze-dev/coze-studio/backend/domain/user/entity"
 	workflow2 "github.com/coze-dev/coze-studio/backend/domain/workflow"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/code"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/database"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/database/databasemock"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/knowledge"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/knowledge/knowledgemock"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/model"
-	mockmodel "github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/model/modelmock"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/plugin"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/plugin/pluginmock"
-	crosssearch "github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/search"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/search/searchmock"
-	"github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/variable"
-	mockvar "github.com/coze-dev/coze-studio/backend/domain/workflow/crossdomain/variable/varmock"
+	"github.com/coze-dev/coze-studio/backend/domain/workflow/config"
 	"github.com/coze-dev/coze-studio/backend/domain/workflow/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/workflow/entity/vo"
+	"github.com/coze-dev/coze-studio/backend/domain/workflow/plugin"
 	"github.com/coze-dev/coze-studio/backend/domain/workflow/service"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/coderunner"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/modelmgr"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/checkpoint"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/coderunner/direct"
+	"github.com/coze-dev/coze-studio/backend/domain/workflow/variable"
+	mockvar "github.com/coze-dev/coze-studio/backend/domain/workflow/variable/varmock"
+	"github.com/coze-dev/coze-studio/backend/infra/cache/impl/redis"
+	"github.com/coze-dev/coze-studio/backend/infra/checkpoint"
+	"github.com/coze-dev/coze-studio/backend/infra/coderunner"
 	mockCrossUser "github.com/coze-dev/coze-studio/backend/internal/mock/crossdomain/crossuser"
 	mockPlugin "github.com/coze-dev/coze-studio/backend/internal/mock/domain/plugin"
 	mockcode "github.com/coze-dev/coze-studio/backend/internal/mock/domain/workflow/crossdomain/code"
-	mock "github.com/coze-dev/coze-studio/backend/internal/mock/infra/contract/idgen"
-	storageMock "github.com/coze-dev/coze-studio/backend/internal/mock/infra/contract/storage"
+	mock "github.com/coze-dev/coze-studio/backend/internal/mock/infra/idgen"
+	storageMock "github.com/coze-dev/coze-studio/backend/internal/mock/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/internal/testutil"
 	"github.com/coze-dev/coze-studio/backend/pkg/ctxcache"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
-	"github.com/coze-dev/coze-studio/backend/pkg/lang/ternary"
 	"github.com/coze-dev/coze-studio/backend/pkg/sonic"
 	"github.com/coze-dev/coze-studio/backend/types/consts"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
 
+func TestMain(m *testing.M) {
+	callbacks.AppendGlobalHandlers(service.GetTokenCallbackHandler())
+	service.RegisterAllNodeAdaptors()
+	os.Exit(m.Run())
+}
+
 type wfTestRunner struct {
-	t           *testing.T
-	h           *server.Hertz
-	ctrl        *gomock.Controller
-	idGen       *mock.MockIDGenerator
-	search      *searchmock.MockNotifier
-	appVarS     *mockvar.MockStore
-	userVarS    *mockvar.MockStore
-	varGetter   *mockvar.MockVariablesMetaGetter
-	modelManage *mockmodel.MockManager
-	plugin      *mockPlugin.MockPluginService
-	tos         *storageMock.MockStorage
-	knowledge   *knowledgemock.MockKnowledgeOperator
-	database    *databasemock.MockDatabaseOperator
-	pluginSrv   *pluginmock.MockService
-	ctx         context.Context
-	closeFn     func()
+	t         *testing.T
+	h         *server.Hertz
+	ctrl      *gomock.Controller
+	idGen     *mock.MockIDGenerator
+	appVarS   *mockvar.MockStore
+	userVarS  *mockvar.MockStore
+	varGetter *mockvar.MockVariablesMetaGetter
+
+	plugin         *mockPlugin.MockPluginService
+	tos            *storageMock.MockStorage
+	knowledge      *knowledgemock.MockKnowledge
+	database       *databasemock.MockDatabase
+	pluginSrv      *pluginmock.MockPluginService
+	conversation   *conversationmock.MockConversation
+	message        *messagemock.MockMessage
+	agentRun       *agentrunmock.MockAgentRun
+	internalModel  *testutil.UTChatModel
+	publishPatcher *mockey.Mocker
+	ctx            context.Context
+	closeFn        func()
 }
 
 var req2URL = map[reflect.Type]string{
-	reflect.TypeOf(&workflow.NodeTemplateListRequest{}):           "/api/workflow_api/node_template_list",
-	reflect.TypeOf(&workflow.CreateWorkflowRequest{}):             "/api/workflow_api/create",
-	reflect.TypeOf(&workflow.SaveWorkflowRequest{}):               "/api/workflow_api/save",
-	reflect.TypeOf(&workflow.DeleteWorkflowRequest{}):             "/api/workflow_api/delete",
-	reflect.TypeOf(&workflow.GetCanvasInfoRequest{}):              "/api/workflow_api/canvas",
-	reflect.TypeOf(&workflow.WorkFlowTestRunRequest{}):            "/api/workflow_api/test_run",
-	reflect.TypeOf(&workflow.CancelWorkFlowRequest{}):             "/api/workflow_api/cancel",
-	reflect.TypeOf(&workflow.PublishWorkflowRequest{}):            "/api/workflow_api/publish",
-	reflect.TypeOf(&workflow.OpenAPIRunFlowRequest{}):             "/v1/workflow/run",
-	reflect.TypeOf(&workflow.ValidateTreeRequest{}):               "/api/workflow_api/validate_tree",
-	reflect.TypeOf(&workflow.WorkflowTestResumeRequest{}):         "/api/workflow_api/test_resume",
-	reflect.TypeOf(&workflow.WorkflowNodeDebugV2Request{}):        "/api/workflow_api/nodeDebug",
-	reflect.TypeOf(&workflow.QueryWorkflowNodeTypeRequest{}):      "/api/workflow_api/node_type",
-	reflect.TypeOf(&workflow.GetWorkFlowListRequest{}):            "/api/workflow_api/workflow_list",
-	reflect.TypeOf(&workflow.UpdateWorkflowMetaRequest{}):         "/api/workflow_api/update_meta",
-	reflect.TypeOf(&workflow.GetWorkflowDetailRequest{}):          "/api/workflow_api/workflow_detail",
-	reflect.TypeOf(&workflow.GetWorkflowDetailInfoRequest{}):      "/api/workflow_api/workflow_detail_info",
-	reflect.TypeOf(&workflow.GetLLMNodeFCSettingDetailRequest{}):  "/api/workflow_api/llm_fc_setting_detail",
-	reflect.TypeOf(&workflow.GetLLMNodeFCSettingsMergedRequest{}): "/api/workflow_api/llm_fc_setting_merged",
-	reflect.TypeOf(&workflow.CopyWorkflowRequest{}):               "/api/workflow_api/copy",
-	reflect.TypeOf(&workflow.BatchDeleteWorkflowRequest{}):        "/api/workflow_api/batch_delete",
-	reflect.TypeOf(&workflow.GetHistorySchemaRequest{}):           "/api/workflow_api/history_schema",
-	reflect.TypeOf(&workflow.GetWorkflowReferencesRequest{}):      "/api/workflow_api/workflow_references",
+	reflect.TypeOf(&workflow.NodeTemplateListRequest{}):             "/api/workflow_api/node_template_list",
+	reflect.TypeOf(&workflow.CreateWorkflowRequest{}):               "/api/workflow_api/create",
+	reflect.TypeOf(&workflow.SaveWorkflowRequest{}):                 "/api/workflow_api/save",
+	reflect.TypeOf(&workflow.DeleteWorkflowRequest{}):               "/api/workflow_api/delete",
+	reflect.TypeOf(&workflow.GetCanvasInfoRequest{}):                "/api/workflow_api/canvas",
+	reflect.TypeOf(&workflow.WorkFlowTestRunRequest{}):              "/api/workflow_api/test_run",
+	reflect.TypeOf(&workflow.CancelWorkFlowRequest{}):               "/api/workflow_api/cancel",
+	reflect.TypeOf(&workflow.PublishWorkflowRequest{}):              "/api/workflow_api/publish",
+	reflect.TypeOf(&workflow.OpenAPIRunFlowRequest{}):               "/v1/workflow/run",
+	reflect.TypeOf(&workflow.ValidateTreeRequest{}):                 "/api/workflow_api/validate_tree",
+	reflect.TypeOf(&workflow.WorkflowTestResumeRequest{}):           "/api/workflow_api/test_resume",
+	reflect.TypeOf(&workflow.WorkflowNodeDebugV2Request{}):          "/api/workflow_api/nodeDebug",
+	reflect.TypeOf(&workflow.QueryWorkflowNodeTypeRequest{}):        "/api/workflow_api/node_type",
+	reflect.TypeOf(&workflow.GetWorkFlowListRequest{}):              "/api/workflow_api/workflow_list",
+	reflect.TypeOf(&workflow.UpdateWorkflowMetaRequest{}):           "/api/workflow_api/update_meta",
+	reflect.TypeOf(&workflow.GetWorkflowDetailRequest{}):            "/api/workflow_api/workflow_detail",
+	reflect.TypeOf(&workflow.GetWorkflowDetailInfoRequest{}):        "/api/workflow_api/workflow_detail_info",
+	reflect.TypeOf(&workflow.GetLLMNodeFCSettingDetailRequest{}):    "/api/workflow_api/llm_fc_setting_detail",
+	reflect.TypeOf(&workflow.GetLLMNodeFCSettingsMergedRequest{}):   "/api/workflow_api/llm_fc_setting_merged",
+	reflect.TypeOf(&workflow.CopyWorkflowRequest{}):                 "/api/workflow_api/copy",
+	reflect.TypeOf(&workflow.BatchDeleteWorkflowRequest{}):          "/api/workflow_api/batch_delete",
+	reflect.TypeOf(&workflow.GetHistorySchemaRequest{}):             "/api/workflow_api/history_schema",
+	reflect.TypeOf(&workflow.GetWorkflowReferencesRequest{}):        "/api/workflow_api/workflow_references",
+	reflect.TypeOf(&workflow.CreateProjectConversationDefRequest{}): "/api/workflow_api/project_conversation/create",
+	reflect.TypeOf(&workflow.DeleteProjectConversationDefRequest{}): "/api/workflow_api/project_conversation/delete",
+	reflect.TypeOf(&workflow.UpdateProjectConversationDefRequest{}): "/api/workflow_api/project_conversation/update",
+	reflect.TypeOf(&workflow.ListProjectConversationRequest{}):      "/api/workflow_api/project_conversation/list",
+	reflect.TypeOf(&workflow.GetChatFlowRoleRequest{}):              "/api/workflow_api/chat_flow_role/get",
+	reflect.TypeOf(&workflow.CreateChatFlowRoleRequest{}):           "/api/workflow_api/chat_flow_role/create",
+	reflect.TypeOf(&workflow.DeleteChatFlowRoleRequest{}):           "/api/workflow_api/chat_flow_role/delete",
 }
 
 func newWfTestRunner(t *testing.T) *wfTestRunner {
@@ -154,6 +183,11 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 		c = ctxcache.Init(c)
 		ctxcache.Store(c, consts.SessionDataKeyInCtx, &userentity.Session{
 			UserID: 123,
+		})
+		// Add API auth info for OpenAPI endpoints
+		ctxcache.Store(c, consts.OpenapiAuthKeyInCtx, &entity2.ApiKey{
+			UserID:      123,
+			ConnectorID: consts.APIConnectorID,
 		})
 		ctx.Next(c)
 	})
@@ -185,6 +219,14 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 	h.GET("/v1/workflow/get_run_history", OpenAPIGetWorkflowRunHistory)
 	h.POST("/api/workflow_api/history_schema", GetHistorySchema)
 	h.POST("/api/workflow_api/workflow_references", GetWorkflowReferences)
+	h.POST("/api/workflow_api/project_conversation/create", CreateProjectConversationDef)
+	h.POST("/api/workflow_api/project_conversation/delete", DeleteProjectConversationDef)
+	h.POST("/api/workflow_api/project_conversation/update", UpdateProjectConversationDef)
+	h.POST("/api/workflow_api/project_conversation/list", ListProjectConversationDef)
+	h.POST("/api/workflow_api/chat_flow_role/delete", DeleteChatFlowRole)
+	h.POST("/api/workflow_api/chat_flow_role/create", CreateChatFlowRole)
+	h.GET("/api/workflow_api/chat_flow_role/get", GetChatFlowRole)
+	h.POST("/v1/workflows/chat", OpenAPIChatFlowRun)
 
 	ctrl := gomock.NewController(t, gomock.WithOverridableExpectations())
 	mockIDGen := mock.NewMockIDGenerator(ctrl)
@@ -231,21 +273,21 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 		t.Fatalf("Failed to start miniredis: %v", err)
 	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: s.Addr(),
-	})
+	redisClient := redis.NewWithAddrAndPassword(s.Addr(), "")
 
 	cpStore := checkpoint.NewRedisStore(redisClient)
 
+	utChatModel := &testutil.UTChatModel{}
+
 	mockTos := storageMock.NewMockStorage(ctrl)
 	mockTos.EXPECT().GetObjectUrl(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
-	workflowRepo := service.NewWorkflowRepository(mockIDGen, db, redisClient, mockTos, cpStore)
+
+	workflowRepo, _ := service.NewWorkflowRepository(mockIDGen, db, redisClient, mockTos, cpStore, utChatModel, &config.WorkflowConfig{
+		NodeOfCodeConfig: &config.NodeOfCodeConfig{},
+	})
 	mockey.Mock(appworkflow.GetWorkflowDomainSVC).Return(service.NewWorkflowService(workflowRepo)).Build()
 	mockey.Mock(workflow2.GetRepository).Return(workflowRepo).Build()
-
-	mockSearchNotify := searchmock.NewMockNotifier(ctrl)
-	mockey.Mock(crosssearch.GetNotifier).Return(mockSearchNotify).Build()
-	mockSearchNotify.EXPECT().PublishWorkflowResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	publishPatcher := mockey.Mock(appworkflow.PublishWorkflowResource).Return(nil).Build()
 
 	mockCU := mockCrossUser.NewMockUser(ctrl)
 	mockCU.EXPECT().GetUserSpaceList(gomock.Any(), gomock.Any()).Return([]*crossuser.EntitySpace{
@@ -268,12 +310,8 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 
 	mPlugin := mockPlugin.NewMockPluginService(ctrl)
 
-	mockKwOperator := knowledgemock.NewMockKnowledgeOperator(ctrl)
-	knowledge.SetKnowledgeOperator(mockKwOperator)
-
-	mockModelManage := mockmodel.NewMockManager(ctrl)
-	mockModelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(nil, nil, nil).AnyTimes()
-	m3 := mockey.Mock(model.GetManager).Return(mockModelManage).Build()
+	mockKwOperator := knowledgemock.NewMockKnowledge(ctrl)
+	crossknowledge.SetDefaultSVC(mockKwOperator)
 
 	m := mockey.Mock(crossuser.DefaultSVC).Return(mockCU).Build()
 	m1 := mockey.Mock(ctxutil.GetApiAuthFromCtx).Return(&entity2.ApiKey{
@@ -283,21 +321,38 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 	m4 := mockey.Mock(ctxutil.MustGetUIDFromCtx).Return(int64(1)).Build()
 	m5 := mockey.Mock(ctxutil.GetUIDFromCtx).Return(ptr.Of(int64(1))).Build()
 
-	mockDatabaseOperator := databasemock.NewMockDatabaseOperator(ctrl)
-	database.SetDatabaseOperator(mockDatabaseOperator)
+	mockDatabaseOperator := databasemock.NewMockDatabase(ctrl)
+	crossdatabase.SetDefaultSVC(mockDatabaseOperator)
 
-	mockPluginSrv := pluginmock.NewMockService(ctrl)
-	plugin.SetPluginService(mockPluginSrv)
+	mockPluginSrv := pluginmock.NewMockPluginService(ctrl)
+	crossplugin.SetDefaultSVC(mockPluginSrv)
+
+	mockStorage := storageMock.NewMockStorage(ctrl)
+	mockStorage.EXPECT().GetObjectUrl(gomock.Any(), gomock.Any()).Return("URL_ADDRESS", nil).AnyTimes()
+	plugin.SetOSS(mockStorage)
+
+	mockConversation := conversationmock.NewMockConversation(ctrl)
+	crossconversation.SetDefaultSVC(mockConversation)
+	mockMessage := messagemock.NewMockMessage(ctrl)
+	crossmessage.SetDefaultSVC(mockMessage)
+	mockAgentRun := agentrunmock.NewMockAgentRun(ctrl)
+	crossagentrun.SetDefaultSVC(mockAgentRun)
+
+	// Initialize permission service for tests
+	mockPermission := permissionmock.NewMockPermission(ctrl)
+	mockPermission.EXPECT().CheckAuthz(gomock.Any(), gomock.Any()).Return(&permission.CheckAuthzResult{Decision: permission.Allow}, nil).AnyTimes()
+	crosspermission.SetDefaultSVC(mockPermission)
 
 	mockey.Mock((*user.UserApplicationService).MGetUserBasicInfo).Return(&playground.MGetUserBasicInfoResponse{
 		UserBasicInfoMap: make(map[string]*playground.UserBasicInfo),
 	}, nil).Build()
 
 	f := func() {
+		publishPatcher.UnPatch()
 		m.UnPatch()
 		m1.UnPatch()
 		m2.UnPatch()
-		m3.UnPatch()
+
 		m4.UnPatch()
 		m5.UnPatch()
 		vh.UnPatch()
@@ -306,22 +361,25 @@ func newWfTestRunner(t *testing.T) *wfTestRunner {
 	}
 
 	return &wfTestRunner{
-		t:           t,
-		h:           h,
-		ctrl:        ctrl,
-		idGen:       mockIDGen,
-		search:      mockSearchNotify,
-		appVarS:     mockGlobalAppVarStore,
-		userVarS:    mockGlobalUserVarStore,
-		varGetter:   mockVarGetter,
-		modelManage: mockModelManage,
-		plugin:      mPlugin,
-		tos:         mockTos,
-		knowledge:   mockKwOperator,
-		database:    mockDatabaseOperator,
-		ctx:         context.Background(),
-		closeFn:     f,
-		pluginSrv:   mockPluginSrv,
+		t:              t,
+		h:              h,
+		ctrl:           ctrl,
+		idGen:          mockIDGen,
+		appVarS:        mockGlobalAppVarStore,
+		userVarS:       mockGlobalUserVarStore,
+		varGetter:      mockVarGetter,
+		plugin:         mPlugin,
+		tos:            mockTos,
+		knowledge:      mockKwOperator,
+		database:       mockDatabaseOperator,
+		internalModel:  utChatModel,
+		ctx:            context.Background(),
+		closeFn:        f,
+		pluginSrv:      mockPluginSrv,
+		publishPatcher: publishPatcher,
+		conversation:   mockConversation,
+		message:        mockMessage,
+		agentRun:       mockAgentRun,
 	}
 }
 
@@ -411,6 +469,7 @@ type loadOptions struct {
 	version   string
 	projectID int64
 	data      []byte
+	mode      *workflow.WorkflowMode
 }
 
 func withWorkflowData(data []byte) func(*loadOptions) {
@@ -438,6 +497,12 @@ func withProjectID(id int64) func(*loadOptions) {
 func withPublish(version string) func(*loadOptions) {
 	return func(o *loadOptions) {
 		o.version = version
+	}
+}
+
+func withMode(mode workflow.WorkflowMode) func(*loadOptions) {
+	return func(o *loadOptions) {
+		o.mode = ptr.Of(mode)
 	}
 }
 
@@ -492,6 +557,8 @@ func (r *wfTestRunner) load(schemaFile string, opts ...func(*loadOptions)) strin
 			createReq.ProjectID = ptr.Of(strconv.FormatInt(loadOpts.projectID, 10))
 		}
 	}
+
+	createReq.FlowMode = loadOpts.mode
 
 	resp := post[workflow.CreateWorkflowResponse](r, createReq)
 
@@ -598,10 +665,40 @@ func mustMarshalToString(t *testing.T, m any) string {
 	return b
 }
 
-func (r *wfTestRunner) testRun(id string, input map[string]string) string {
+type runOption struct {
+	ProjectID *int64
+	BotID     *int64
+}
+type RunOptionFun func(options *runOption)
+
+func withRunProjectID(pID int64) RunOptionFun {
+	return func(options *runOption) {
+		options.ProjectID = &pID
+	}
+}
+
+func withRunBotID(bID int64) RunOptionFun {
+	return func(options *runOption) {
+		options.BotID = &bID
+	}
+}
+
+func (r *wfTestRunner) testRun(id string, input map[string]string, opts ...RunOptionFun) string {
+	opt := &runOption{}
+	for _, o := range opts {
+		o(opt)
+	}
 	testRunReq := &workflow.WorkFlowTestRunRequest{
 		WorkflowID: id,
 		Input:      input,
+	}
+
+	if opt.ProjectID != nil {
+		testRunReq.ProjectID = ptr.Of(strconv.FormatInt(ptr.From(opt.ProjectID), 10))
+	}
+
+	if opt.BotID != nil {
+		testRunReq.BotID = ptr.Of(strconv.FormatInt(ptr.From(opt.BotID), 10))
 	}
 
 	testRunResponse := post[workflow.WorkFlowTestRunResponse](r, testRunReq)
@@ -625,12 +722,13 @@ func withSpecificNodeID(id string) func(options *getProcessOptions) {
 }
 
 type exeResult struct {
-	output string
-	status workflow.WorkflowExeStatus
-	event  *workflow.NodeEvent
-	token  *workflow.TokenAndCost
-	t      *testing.T
-	reason string
+	output      string
+	status      workflow.WorkflowExeStatus
+	event       *workflow.NodeEvent
+	token       *workflow.TokenAndCost
+	t           *testing.T
+	reason      string
+	nodeResults []*workflow.NodeResult
 }
 
 func (e *exeResult) assertSuccess() {
@@ -649,6 +747,26 @@ func (e *exeResult) tokenEqual(in, out int) {
 	assert.Equal(e.t, out, outputI)
 }
 
+func (e *exeResult) nodeResultHasResponseExtra(nodeID string, k string, v any) {
+	var n *workflow.NodeResult
+
+	for _, nr := range e.nodeResults {
+		if nr.NodeId == nodeID {
+			n = nr
+			break
+		}
+	}
+
+	if n == nil {
+		e.t.Fatal("node key: ", nodeID, "not found")
+		return
+	}
+	extra := mustUnmarshalToMap(e.t, n.Extra)
+	assert.NotEmpty(e.t, extra)
+	assert.Contains(e.t, extra, "response_extra")
+	assert.Equal(e.t, extra["response_extra"].(map[string]any)[k], v)
+}
+
 func (r *wfTestRunner) getProcess(id, exeID string, opts ...func(options *getProcessOptions)) *exeResult {
 	options := &getProcessOptions{}
 	for _, opt := range opts {
@@ -662,6 +780,8 @@ func (r *wfTestRunner) getProcess(id, exeID string, opts ...func(options *getPro
 	var nodeType string
 	var token *workflow.TokenAndCost
 	var reason string
+	var nodeResults []*workflow.NodeResult
+	var count int
 	for {
 		if nodeEvent != nil {
 			if options.previousInterruptEventID != "" {
@@ -675,6 +795,10 @@ func (r *wfTestRunner) getProcess(id, exeID string, opts ...func(options *getPro
 
 		if workflowStatus != workflow.WorkflowExeStatus_Running {
 			break
+		}
+
+		if count > 1000 {
+			r.t.Fatal("get process for too long")
 		}
 
 		getProcessResp := getProcess(r.t, r.h, id, exeID)
@@ -709,16 +833,22 @@ func (r *wfTestRunner) getProcess(id, exeID string, opts ...func(options *getPro
 		if nodeEvent != nil {
 			eventID = nodeEvent.ID
 		}
+
+		nodeResults = getProcessResp.Data.NodeResults
+
 		r.t.Logf("getProcess output= %s, status= %v, eventID= %s, nodeType= %s", output, workflowStatus, eventID, nodeType)
+
+		count++
 	}
 
 	return &exeResult{
-		output: output,
-		status: workflowStatus,
-		event:  nodeEvent,
-		token:  token,
-		t:      r.t,
-		reason: reason,
+		output:      output,
+		status:      workflowStatus,
+		event:       nodeEvent,
+		token:       token,
+		t:           r.t,
+		reason:      reason,
+		nodeResults: nodeResults,
 	}
 }
 
@@ -751,11 +881,24 @@ func (r *wfTestRunner) openapiAsyncRun(id string, input any) string {
 	return runResp.GetExecuteID()
 }
 
-func (r *wfTestRunner) openapiSyncRun(id string, input any) (map[string]any, string) {
+func (r *wfTestRunner) openapiSyncRun(id string, input any, opts ...RunOptionFun) (map[string]any, string) {
+	opt := &runOption{}
+	for _, o := range opts {
+		o(opt)
+	}
+
 	runReq := &workflow.OpenAPIRunFlowRequest{
 		WorkflowID: id,
 		Parameters: ptr.Of(mustMarshalToString(r.t, input)),
 		IsAsync:    ptr.Of(false),
+	}
+
+	if opt.ProjectID != nil {
+		runReq.ProjectID = ptr.Of(strconv.FormatInt(ptr.From(opt.ProjectID), 10))
+	}
+
+	if opt.BotID != nil {
+		runReq.BotID = ptr.Of(strconv.FormatInt(ptr.From(opt.BotID), 10))
 	}
 
 	runResp := post[workflow.OpenAPIRunFlowResponse](r, runReq)
@@ -899,6 +1042,8 @@ func (r *wfTestRunner) openapiStream(id string, input any) *sse.Reader {
 	hReq.SetMethod("POST")
 	hReq.SetBody(m)
 	hReq.SetHeader("Content-Type", "application/json")
+	// Add Authorization header for API authentication
+	hReq.SetHeader("Authorization", "Bearer test-api-key-123")
 	err = c.Do(context.Background(), hReq, hResp)
 	assert.NoError(r.t, err)
 
@@ -926,6 +1071,48 @@ func (r *wfTestRunner) openapiResume(id string, eventID string, resumeData strin
 	c, _ := client.NewClient()
 	hReq, hResp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	hReq.SetRequestURI("http://localhost:8888" + "/v1/workflow/stream_resume")
+	hReq.SetMethod("POST")
+	hReq.SetBody(m)
+	hReq.SetHeader("Content-Type", "application/json")
+	// Add Authorization header for API authentication
+	hReq.SetHeader("Authorization", "Bearer test-api-key-123")
+	err = c.Do(context.Background(), hReq, hResp)
+	assert.NoError(r.t, err)
+
+	if hResp.StatusCode() != http.StatusOK {
+		r.t.Errorf("unexpected status code: %d, body: %s", hResp.StatusCode(), string(hResp.Body()))
+	}
+
+	re, err := sse.NewReader(hResp)
+	assert.NoError(r.t, err)
+
+	return re
+}
+
+func (r *wfTestRunner) openapiChatFlowRun(wfID string, cID, appID, botID *string, input any, additionalMessage []*workflow.EnterMessage) *sse.Reader {
+	inputStr, _ := sonic.MarshalString(input)
+
+	req := &workflow.ChatFlowRunRequest{
+		WorkflowID:         wfID,
+		Parameters:         ptr.Of(inputStr),
+		AdditionalMessages: additionalMessage,
+	}
+	if cID != nil {
+		req.ConversationID = cID
+	}
+	if appID != nil {
+		req.AppID = appID
+	}
+	if botID != nil {
+		req.BotID = botID
+	}
+
+	m, err := sonic.Marshal(req)
+	assert.NoError(r.t, err)
+
+	c, _ := client.NewClient()
+	hReq, hResp := protocol.AcquireRequest(), protocol.AcquireResponse()
+	hReq.SetRequestURI("http://localhost:8888" + "/v1/workflows/chat")
 	hReq.SetMethod("POST")
 	hReq.SetBody(m)
 	hReq.SetHeader("Content-Type", "application/json")
@@ -1000,61 +1187,6 @@ func TestNodeTemplateList(t *testing.T) {
 
 }
 
-func TestTestRunAndGetProcess(t *testing.T) {
-	mockey.PatchConvey("test test_run and get_process", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		r.appVarS.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return("1.0", nil).AnyTimes()
-
-		id := r.load("entry_exit.json")
-		input := map[string]string{
-			"arr":   "[\"arr1\", \"arr2\"]",
-			"obj":   "{\"field1\": [\"1234\", \"5678\"]}",
-			"input": "3.5",
-		}
-
-		mockey.PatchConvey("test run then immediately cancel", func() {
-			exeID := r.testRun(id, input)
-
-			r.cancel(id, exeID)
-
-			e := r.getProcess(id, exeID)
-			// maybe cancel or success, whichever comes first
-			assert.Contains(t, []workflow.WorkflowExeStatus{workflow.WorkflowExeStatus_Cancel, workflow.WorkflowExeStatus_Success}, e.status)
-		})
-
-		mockey.PatchConvey("test run success, then cancel", func() {
-			exeID := r.testRun(id, input)
-			r.getProcess(id, exeID)
-
-			// cancel after success, nothing happens
-			r.cancel(id, exeID)
-
-			his := r.getOpenAPIProcess(id, exeID)
-			assert.Equal(t, exeID, fmt.Sprintf("%d", *his.Data[0].ExecuteID))
-			assert.Equal(t, workflow.WorkflowRunMode_Async, *his.Data[0].RunMode)
-
-			r.publish(id, "v0.0.1", true)
-
-			mockey.PatchConvey("openapi async run", func() {
-				exeID := r.openapiAsyncRun(id, input)
-				e := r.getProcess(id, exeID)
-				assert.Equal(t, "1.0_[\"1234\",\"5678\"]", e.output)
-			})
-
-			mockey.PatchConvey("openapi sync run", func() {
-				output, exeID := r.openapiSyncRun(id, input)
-				assert.Equal(t, "1.0_[\"1234\",\"5678\"]", output["data"])
-				his := r.getOpenAPIProcess(id, exeID)
-				assert.Equal(t, exeID, fmt.Sprintf("%d", *his.Data[0].ExecuteID))
-				assert.Equal(t, workflow.WorkflowRunMode_Sync, *his.Data[0].RunMode)
-			})
-		})
-
-	})
-}
-
 func TestValidateTree(t *testing.T) {
 	mockey.PatchConvey("test validate tree", t, func() {
 		r := newWfTestRunner(t)
@@ -1104,7 +1236,8 @@ func TestValidateTree(t *testing.T) {
 						assert.Equal(t, i.Message, `node "代码_1" not connected`)
 					}
 					if i.NodeError.NodeID == "160892" {
-						assert.Contains(t, i.Message, `node "意图识别"'s port "branch_1" not connected`, `node "意图识别"'s port "default" not connected;`)
+						assert.Contains(t, i.Message, `node "意图识别"'s port "branch_1" not connected`)
+						assert.Contains(t, i.Message, `node "意图识别"'s port "default" not connected`)
 					}
 
 				}
@@ -1151,7 +1284,8 @@ func TestValidateTree(t *testing.T) {
 						assert.Equal(t, i.Message, `node "代码_1" not connected`)
 					}
 					if i.NodeError.NodeID == "160892" {
-						assert.Contains(t, i.Message, `node "意图识别"'s port "branch_1" not connected`, `node "意图识别"'s port "default" not connected;`)
+						assert.Contains(t, i.Message, `node "意图识别"'s port "branch_1" not connected`)
+						assert.Contains(t, i.Message, `node "意图识别"'s port "default" not connected`)
 					}
 				}
 			}
@@ -1167,113 +1301,6 @@ func TestValidateTree(t *testing.T) {
 			assert.Contains(t, msgs, `ref block error,[blockID] is empty`)
 		})
 
-	})
-}
-
-func TestTestResumeWithInputNode(t *testing.T) {
-	mockey.PatchConvey("test test_resume with input node", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		id := r.load("input_receiver.json")
-
-		userInput := map[string]any{
-			"input": "user input",
-			"obj": map[string]any{
-				"field1": []any{"1", "2"},
-			},
-		}
-		userInputStr, err := sonic.MarshalString(userInput)
-		assert.NoError(t, err)
-
-		mockey.PatchConvey("cancel after interrupt", func() {
-			exeID := r.testRun(id, map[string]string{
-				"input": "unused initial input",
-			})
-
-			e := r.getProcess(id, exeID)
-			assert.NotNil(t, e.event) // interrupted
-
-			r.cancel(id, exeID)
-
-			e = r.getProcess(id, exeID)
-			assert.Equal(t, workflow.WorkflowExeStatus_Cancel, e.status)
-		})
-
-		mockey.PatchConvey("cancel immediately after resume", func() {
-			exeID := r.testRun(id, map[string]string{
-				"input": "unused initial input",
-			})
-
-			e := r.getProcess(id, exeID)
-			assert.NotNil(t, e.event) // interrupted
-
-			r.testResume(id, exeID, e.event.ID, userInputStr)
-			r.cancel(id, exeID)
-
-			e = r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-			// maybe cancel or success, whichever comes first
-			if e.status != workflow.WorkflowExeStatus_Success &&
-				e.status != workflow.WorkflowExeStatus_Cancel {
-				t.Errorf("expected to be either success or cancel, got: %v", e.status)
-			}
-		})
-
-		mockey.PatchConvey("test run, then test resume", func() {
-			exeID := r.testRun(id, map[string]string{
-				"input": "unused initial input",
-			})
-
-			e := r.getProcess(id, exeID)
-			assert.NotNil(t, e.event) // interrupted
-
-			r.testResume(id, exeID, e.event.ID, userInputStr)
-
-			e = r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-			assert.Equal(t, workflow.WorkflowExeStatus_Success, e.status)
-			assert.Equal(t, map[string]any{
-				"input":    "user input",
-				"inputArr": nil,
-				"field1":   `["1","2"]`,
-			}, mustUnmarshalToMap(t, e.output))
-		})
-
-		mockey.PatchConvey("node debug the input node", func() {
-			exeID := r.nodeDebug(id, "154951")
-
-			e := r.getProcess(id, exeID)
-			assert.NotNil(t, e.event) // interrupted
-
-			r.testResume(id, exeID, e.event.ID, userInputStr)
-
-			e2 := r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-			e2.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"input":    "user input",
-				"inputArr": nil,
-				"obj": map[string]any{
-					"field1": `["1","2"]`,
-				},
-			}, mustUnmarshalToMap(t, e2.output))
-
-			result := r.getNodeExeHistory(id, exeID, "154951", nil)
-			assert.Equal(t, mustUnmarshalToMap(t, e2.output), mustUnmarshalToMap(t, result.Output))
-		})
-
-		mockey.PatchConvey("sync run does not support interrupt", func() {
-			r.publish(id, "v1.0.0", true)
-
-			syncRunReq := &workflow.OpenAPIRunFlowRequest{
-				WorkflowID: id,
-				Parameters: ptr.Of(mustMarshalToString(t, map[string]string{
-					"input": "unused initial input",
-				})),
-				IsAsync: ptr.Of(false),
-			}
-
-			resp := post[workflow.OpenAPIRunFlowResponse](r, syncRunReq)
-			assert.Equal(t, int64(errno.ErrOpenAPIInterruptNotSupported), resp.Code)
-		})
 	})
 }
 
@@ -1412,7 +1439,8 @@ func TestResumeWithQANode(t *testing.T) {
 				return nil, errors.New("not found")
 			},
 		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel, nil, nil).AnyTimes()
+
+		mockey.Mock(modelbuilder.BuildModelByID).Return(chatModel, nil, nil).Build()
 
 		id := r.load("qa_with_structured_output.json")
 
@@ -1438,263 +1466,6 @@ func TestResumeWithQANode(t *testing.T) {
 			"age":           int64(1),
 		}, mustUnmarshalToMap(t, e3.output))
 		e3.tokenEqual(17, 26)
-	})
-}
-
-func TestNestedSubWorkflowWithInterrupt(t *testing.T) {
-	mockey.PatchConvey("test nested sub workflow with interrupt", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		chatModel1 := &testutil.UTChatModel{
-			StreamResultProvider: func(_ int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				sr := schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     1,
-								CompletionTokens: 3,
-								TotalTokens:      4,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "don't know.",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 7,
-								TotalTokens:      7,
-							},
-						},
-					},
-				})
-				return sr, nil
-			},
-		}
-		chatModel2 := &testutil.UTChatModel{
-			StreamResultProvider: func(_ int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				sr := schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     2,
-								CompletionTokens: 2,
-								TotalTokens:      4,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "don't know too.",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 11,
-								TotalTokens:      11,
-							},
-						},
-					},
-				})
-				return sr, nil
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1737521813 {
-				return chatModel1, nil, nil
-			} else {
-				return chatModel2, nil, nil
-			}
-		}).AnyTimes()
-
-		topID := r.load("subworkflow/top_workflow.json")
-		defer func() {
-			post[workflow.DeleteWorkflowResponse](r, &workflow.DeleteWorkflowRequest{
-				WorkflowID: topID,
-			})
-		}()
-
-		midID := r.load("subworkflow/middle_workflow.json", withID(7494849202016272435))
-		bottomID := r.load("subworkflow/bottom_workflow.json", withID(7468899413567684634))
-		inputID := r.load("input_receiver.json", withID(7469607842648457243))
-
-		exeID := r.testRun(topID, map[string]string{
-			"input": "hello",
-		})
-
-		e := r.getProcess(topID, exeID)
-		assert.NotNil(t, e.event)
-
-		r.testResume(topID, exeID, e.event.ID, map[string]any{
-			"input": "more info 1",
-		})
-
-		e2 := r.getProcess(topID, exeID, withPreviousEventID(e.event.ID))
-		assert.NotNil(t, e2.event)
-
-		r.testResume(topID, exeID, e2.event.ID, map[string]any{
-			"input": "more info 2",
-		})
-
-		e3 := r.getProcess(topID, exeID, withPreviousEventID(e2.event.ID))
-		e3.assertSuccess()
-		assert.Equal(t, "I don't know.\nI don't know too.\nb\n[\"new_a_more info 1\",\"new_b_more info 2\"]", e3.output)
-
-		e3.tokenEqual(3, 23)
-
-		r.publish(topID, "v0.0.1", true) // publish the top workflow to
-
-		refs := post[workflow.GetWorkflowReferencesResponse](r, &workflow.GetWorkflowReferencesRequest{
-			WorkflowID: midID,
-		})
-		assert.Equal(t, 1, len(refs.Data.WorkflowList))
-		assert.Equal(t, topID, refs.Data.WorkflowList[0].WorkflowID)
-
-		mockey.PatchConvey("verify history schema for all workflows", func() {
-			// get current draft commit ID of top_workflow
-			canvas := post[workflow.GetCanvasInfoResponse](r, &workflow.GetCanvasInfoRequest{
-				WorkflowID: ptr.Of(topID),
-			})
-			topCommitID := canvas.Data.VcsData.DraftCommitID
-
-			// get history schema of top_workflow
-			resp := post[workflow.GetHistorySchemaResponse](r, &workflow.GetHistorySchemaRequest{
-				WorkflowID: topID,
-				ExecuteID:  ptr.Of(exeID),
-			})
-
-			assert.Equal(t, topCommitID, resp.Data.CommitID)
-
-			// get sub_executeID for middle_workflow
-			nodeHis := r.getNodeExeHistory(topID, exeID, "198743", nil)
-			extra := mustUnmarshalToMap(t, nodeHis.GetExtra())
-			midExeID := extra["subExecuteID"].(int64)
-
-			// do the same for middle_workflow
-			canvas = post[workflow.GetCanvasInfoResponse](r, &workflow.GetCanvasInfoRequest{
-				WorkflowID: ptr.Of(midID),
-			})
-			resp = post[workflow.GetHistorySchemaResponse](r, &workflow.GetHistorySchemaRequest{
-				WorkflowID:   midID,
-				ExecuteID:    ptr.Of(exeID),
-				SubExecuteID: ptr.Of(strconv.FormatInt(midExeID, 10)),
-			})
-			assert.Equal(t, canvas.Data.VcsData.DraftCommitID, resp.Data.CommitID)
-
-			nodeHis = r.getNodeExeHistory(midID, strconv.FormatInt(midExeID, 10), "112956", nil)
-			extra = mustUnmarshalToMap(t, nodeHis.GetExtra())
-			bottomExeID := extra["subExecuteID"].(int64)
-
-			// do the same for bottom_workflow
-			canvas = post[workflow.GetCanvasInfoResponse](r, &workflow.GetCanvasInfoRequest{
-				WorkflowID: ptr.Of(bottomID),
-			})
-			resp = post[workflow.GetHistorySchemaResponse](r, &workflow.GetHistorySchemaRequest{
-				WorkflowID:   bottomID,
-				ExecuteID:    ptr.Of(exeID),
-				SubExecuteID: ptr.Of(strconv.FormatInt(bottomExeID, 10)),
-			})
-			assert.Equal(t, canvas.Data.VcsData.DraftCommitID, resp.Data.CommitID)
-
-			nodeHis = r.getNodeExeHistory(bottomID, strconv.FormatInt(bottomExeID, 10), "141303", nil)
-			extra = mustUnmarshalToMap(t, nodeHis.GetExtra())
-			inputExeID := extra["subExecuteID"].(int64)
-
-			// do the same for input_receiver workflow
-			canvas = post[workflow.GetCanvasInfoResponse](r, &workflow.GetCanvasInfoRequest{
-				WorkflowID: ptr.Of(inputID),
-			})
-			resp = post[workflow.GetHistorySchemaResponse](r, &workflow.GetHistorySchemaRequest{
-				WorkflowID:   inputID,
-				ExecuteID:    ptr.Of(exeID),
-				SubExecuteID: ptr.Of(strconv.FormatInt(inputExeID, 10)),
-			})
-			assert.Equal(t, canvas.Data.VcsData.DraftCommitID, resp.Data.CommitID)
-
-			// update the top_workflow's draft, we still can get it's history schema
-			r.save(topID, "subworkflow/middle_workflow.json")
-			resp = post[workflow.GetHistorySchemaResponse](r, &workflow.GetHistorySchemaRequest{
-				WorkflowID: topID,
-				ExecuteID:  ptr.Of(exeID),
-			})
-			assert.Equal(t, topCommitID, resp.Data.CommitID)
-
-			r.publish(topID, "v0.0.2", true)
-			refs := post[workflow.GetWorkflowReferencesResponse](r, &workflow.GetWorkflowReferencesRequest{
-				WorkflowID: midID,
-			})
-			assert.Equal(t, 0, len(refs.Data.WorkflowList))
-		})
-	})
-}
-
-func TestInterruptWithinBatch(t *testing.T) {
-	mockey.PatchConvey("test interrupt within batch", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		id := r.load("batch/batch_with_inner_interrupt.json")
-		exeID := r.testRun(id, map[string]string{
-			"input_array":       `["a","b"]`,
-			"batch_concurrency": "2",
-		})
-
-		e := r.getProcess(id, exeID)
-		assert.Equal(t, workflow.EventType_InputNode, e.event.Type)
-
-		exeIDInt, _ := strconv.ParseInt(exeID, 0, 64)
-		storeIEs, _ := workflow2.GetRepository().ListInterruptEvents(t.Context(), exeIDInt)
-		assert.Equal(t, 2, len(storeIEs))
-
-		r.testResume(id, exeID, e.event.ID, map[string]any{
-			"input": "input 1",
-		})
-
-		e2 := r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-		assert.Equal(t, workflow.EventType_InputNode, e2.event.Type)
-
-		storeIEs, _ = workflow2.GetRepository().ListInterruptEvents(t.Context(), exeIDInt)
-		assert.Equal(t, 2, len(storeIEs))
-
-		r.testResume(id, exeID, e2.event.ID, map[string]any{
-			"input": "input 2",
-		})
-
-		e3 := r.getProcess(id, exeID, withPreviousEventID(e2.event.ID))
-		assert.Equal(t, workflow.EventType_Question, e3.event.Type)
-
-		storeIEs, _ = workflow2.GetRepository().ListInterruptEvents(t.Context(), exeIDInt)
-		assert.Equal(t, 2, len(storeIEs))
-
-		r.testResume(id, exeID, e3.event.ID, "answer 1")
-
-		e4 := r.getProcess(id, exeID, withPreviousEventID(e3.event.ID))
-		assert.Equal(t, workflow.EventType_Question, e4.event.Type)
-
-		storeIEs, _ = workflow2.GetRepository().ListInterruptEvents(t.Context(), exeIDInt)
-		assert.Equal(t, 1, len(storeIEs))
-
-		r.testResume(id, exeID, e4.event.ID, "answer 2")
-
-		e5 := r.getProcess(id, exeID, withPreviousEventID(e4.event.ID))
-
-		storeIEs, _ = workflow2.GetRepository().ListInterruptEvents(t.Context(), exeIDInt)
-		assert.Equal(t, 0, len(storeIEs))
-		e5.assertSuccess()
-
-		outputMap := mustUnmarshalToMap(t, e5.output)
-
-		if !reflect.DeepEqual(outputMap, map[string]any{
-			"output": []any{"answer 1", "answer 2"},
-		}) && !reflect.DeepEqual(outputMap, map[string]any{
-			"output": []any{"answer 2", "answer 1"},
-		}) {
-			t.Errorf("output map not equal: %v", outputMap)
-		}
 	})
 }
 
@@ -1733,6 +1504,7 @@ func TestPublishWorkflow(t *testing.T) {
 			WorkflowID: id,
 		}
 		_ = post[workflow.DeleteWorkflowResponse](r, deleteReq)
+		time.Sleep(time.Second)
 	})
 }
 
@@ -1803,689 +1575,6 @@ func TestUpdateWorkflowMeta(t *testing.T) {
 	})
 }
 
-func TestSimpleInvokableToolWithReturnVariables(t *testing.T) {
-	mockey.PatchConvey("simple invokable tool with return variables", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		toolID := r.load("function_call/tool_workflow_1.json", withID(7492075279843737651), withPublish("v0.0.1"))
-
-		chatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role: schema.Assistant,
-						ToolCalls: []schema.ToolCall{
-							{
-								ID: "1",
-								Function: schema.FunctionCall{
-									Name:      "ts_test_wf_test_wf",
-									Arguments: "{}",
-								},
-							},
-						},
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     10,
-								CompletionTokens: 11,
-								TotalTokens:      21,
-							},
-						},
-					}, nil
-				} else if index == 1 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "final_answer",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     5,
-								CompletionTokens: 6,
-								TotalTokens:      11,
-							},
-						},
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel, nil, nil).AnyTimes()
-
-		id := r.load("function_call/llm_with_workflow_as_tool.json")
-		defer func() {
-			post[workflow.DeleteWorkflowResponse](r, &workflow.DeleteWorkflowRequest{
-				WorkflowID: id,
-			})
-		}()
-
-		exeID := r.testRun(id, map[string]string{
-			"input": "this is the user input",
-		})
-
-		e := r.getProcess(id, exeID)
-		e.assertSuccess()
-		assert.Equal(t, map[string]any{
-			"output": "final_answer",
-		}, mustUnmarshalToMap(t, e.output))
-		e.tokenEqual(15, 17)
-
-		mockey.PatchConvey("check behavior if stream run", func() {
-			chatModel.Reset()
-
-			defer r.runServer()()
-
-			r.publish(id, "v0.0.1", true)
-
-			sseReader := r.openapiStream(id, map[string]any{
-				"input": "hello",
-			})
-			err := sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-				t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-				return nil
-			})
-			assert.NoError(t, err)
-
-			// check workflow references are correct
-			refs := post[workflow.GetWorkflowReferencesResponse](r, &workflow.GetWorkflowReferencesRequest{
-				WorkflowID: toolID,
-			})
-			assert.Equal(t, 1, len(refs.Data.WorkflowList))
-			assert.Equal(t, id, refs.Data.WorkflowList[0].WorkflowID)
-		})
-	})
-}
-
-func TestReturnDirectlyStreamableTool(t *testing.T) {
-	mockey.PatchConvey("return directly streamable tool", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		outerModel := &testutil.UTChatModel{
-			StreamResultProvider: func(index int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				if index == 0 {
-					return schema.StreamReaderFromArray([]*schema.Message{
-						{
-							Role: schema.Assistant,
-							ToolCalls: []schema.ToolCall{
-								{
-									ID: "1",
-									Function: schema.FunctionCall{
-										Name:      "ts_test_wf_test_wf",
-										Arguments: `{"input": "input for inner model"}`,
-									},
-								},
-							},
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									PromptTokens:     10,
-									CompletionTokens: 11,
-									TotalTokens:      21,
-								},
-							},
-						},
-					}), nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-
-		innerModel := &testutil.UTChatModel{
-			StreamResultProvider: func(index int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				if index == 0 {
-					return schema.StreamReaderFromArray([]*schema.Message{
-						{
-							Role:    schema.Assistant,
-							Content: "I ",
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									PromptTokens:     5,
-									CompletionTokens: 6,
-									TotalTokens:      11,
-								},
-							},
-						},
-						{
-							Role:    schema.Assistant,
-							Content: "don't know",
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									CompletionTokens: 8,
-									TotalTokens:      8,
-								},
-							},
-						},
-						{
-							Role:    schema.Assistant,
-							Content: ".",
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									CompletionTokens: 2,
-									TotalTokens:      2,
-								},
-							},
-						},
-					}), nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1706077826 {
-				innerModel.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return innerModel, nil, nil
-			} else {
-				outerModel.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return outerModel, nil, nil
-			}
-		}).AnyTimes()
-
-		r.load("function_call/tool_workflow_2.json", withID(7492615435881709608), withPublish("v0.0.1"))
-		id := r.load("function_call/llm_workflow_stream_tool.json")
-
-		exeID := r.testRun(id, map[string]string{
-			"input": "this is the user input",
-		})
-		e := r.getProcess(id, exeID)
-		e.assertSuccess()
-		assert.Equal(t, "this is the streaming output I don't know.", e.output)
-		e.tokenEqual(15, 27)
-
-		mockey.PatchConvey("check behavior if stream run", func() {
-			outerModel.Reset()
-			innerModel.Reset()
-			defer r.runServer()()
-			r.publish(id, "v0.0.1", true)
-			sseReader := r.openapiStream(id, map[string]any{
-				"input": "hello",
-			})
-			err := sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-				t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-				return nil
-			})
-			assert.NoError(t, err)
-		})
-	})
-}
-
-func TestSimpleInterruptibleTool(t *testing.T) {
-	mockey.PatchConvey("test simple interruptible tool", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		r.load("input_receiver.json", withID(7492075279843737652), withPublish("v0.0.1"))
-
-		chatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					t.Logf("[TestSimpleInterruptibleTool] enter chatmodel index= 0")
-					return &schema.Message{
-						Role: schema.Assistant,
-						ToolCalls: []schema.ToolCall{
-							{
-								ID: "1",
-								Function: schema.FunctionCall{
-									Name:      "ts_test_wf_test_wf",
-									Arguments: "{}",
-								},
-							},
-						},
-					}, nil
-				} else if index == 1 {
-					t.Logf("[TestSimpleInterruptibleTool] enter chatmodel index= 1")
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "final_answer",
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel, nil, nil).AnyTimes()
-
-		id := r.load("function_call/llm_with_workflow_as_tool_1.json")
-
-		exeID := r.testRun(id, map[string]string{
-			"input": "this is the user input",
-		})
-
-		e := r.getProcess(id, exeID)
-		assert.NotNil(t, e.event)
-
-		r.testResume(id, exeID, e.event.ID, map[string]any{
-			"input": "user input",
-			"obj": map[string]any{
-				"field1": []string{"1", "2"},
-			},
-		})
-
-		e2 := r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-		e2.assertSuccess()
-		assert.Equal(t, map[string]any{
-			"output": "final_answer",
-		}, mustUnmarshalToMap(t, e2.output))
-	})
-}
-
-func TestStreamableToolWithMultipleInterrupts(t *testing.T) {
-	mockey.PatchConvey("return directly streamable tool with multiple interrupts", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		outerModel := &testutil.UTChatModel{
-			StreamResultProvider: func(index int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				if index == 0 {
-					return schema.StreamReaderFromArray([]*schema.Message{
-						{
-							Role: schema.Assistant,
-							ToolCalls: []schema.ToolCall{
-								{
-									ID: "1",
-									Function: schema.FunctionCall{
-										Name:      "ts_test_wf_test_wf",
-										Arguments: `{"input": "what's your name and age"}`,
-									},
-								},
-							},
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									PromptTokens:     6,
-									CompletionTokens: 7,
-									TotalTokens:      13,
-								},
-							},
-						},
-					}), nil
-				} else if index == 1 {
-					return schema.StreamReaderFromArray([]*schema.Message{
-						{
-							Role:    schema.Assistant,
-							Content: "I now know your ",
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									PromptTokens:     5,
-									CompletionTokens: 8,
-									TotalTokens:      13,
-								},
-							},
-						},
-						{
-							Role:    schema.Assistant,
-							Content: "name is Eino and age is 1.",
-							ResponseMeta: &schema.ResponseMeta{
-								Usage: &schema.TokenUsage{
-									CompletionTokens: 10,
-									TotalTokens:      17,
-								},
-							},
-						},
-					}), nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-
-		innerModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"question": "what's your age?"}`,
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     6,
-								CompletionTokens: 7,
-								TotalTokens:      13,
-							},
-						},
-					}, nil
-				} else if index == 1 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"fields": {"name": "eino", "age": 1}}`,
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     8,
-								CompletionTokens: 10,
-								TotalTokens:      18,
-							},
-						},
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1706077827 {
-				outerModel.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return outerModel, nil, nil
-			} else {
-				innerModel.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return innerModel, nil, nil
-			}
-		}).AnyTimes()
-
-		r.load("function_call/tool_workflow_3.json", withID(7492615435881709611), withPublish("v0.0.1"))
-		id := r.load("function_call/llm_workflow_stream_tool_1.json")
-
-		exeID := r.testRun(id, map[string]string{
-			"input": "this is the user input",
-		})
-
-		e := r.getProcess(id, exeID)
-		assert.NotNil(t, e.event)
-		e.tokenEqual(0, 0)
-
-		r.testResume(id, exeID, e.event.ID, "my name is eino")
-		e2 := r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-		assert.NotNil(t, e2.event)
-		e2.tokenEqual(0, 0)
-
-		r.testResume(id, exeID, e2.event.ID, "1 year old")
-		e3 := r.getProcess(id, exeID, withPreviousEventID(e2.event.ID))
-		e3.assertSuccess()
-		assert.Equal(t, "the name is eino, age is 1", e3.output)
-		e3.tokenEqual(20, 24)
-	})
-}
-
-func TestNodeWithBatchEnabled(t *testing.T) {
-	mockey.PatchConvey("test node with batch enabled", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		r.load("batch/sub_workflow_as_batch.json", withID(7469707607914217512), withPublish("v0.0.1"))
-
-		chatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "answer。for index 0",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     5,
-								CompletionTokens: 6,
-								TotalTokens:      11,
-							},
-						},
-					}, nil
-				} else if index == 1 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "answer，for index 1",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     5,
-								CompletionTokens: 6,
-								TotalTokens:      11,
-							},
-						},
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel, nil, nil).AnyTimes()
-
-		id := r.load("batch/node_batches.json")
-
-		exeID := r.testRun(id, map[string]string{
-			"input": `["first input", "second input"]`,
-		})
-		e := r.getProcess(id, exeID)
-		e.assertSuccess()
-		assert.Equal(t, map[string]any{
-			"output": []any{
-				map[string]any{
-					"output": []any{
-						"answer",
-						"for index 0",
-					},
-					"input": "answer。for index 0",
-				},
-				map[string]any{
-					"output": []any{
-						"answer",
-						"for index 1",
-					},
-					"input": "answer，for index 1",
-				},
-			},
-		}, mustUnmarshalToMap(t, e.output))
-		e.tokenEqual(10, 12)
-
-		// verify this workflow has previously succeeded a test run
-		result := r.getNodeExeHistory(id, "", "100001", ptr.Of(workflow.NodeHistoryScene_TestRunInput))
-		assert.True(t, len(result.Output) > 0)
-
-		// verify querying this node's result for a particular test run
-		result = r.getNodeExeHistory(id, exeID, "178876", nil)
-		assert.True(t, len(result.Output) > 0)
-
-		mockey.PatchConvey("test node debug with batch mode", func() {
-			exeID = r.nodeDebug(id, "178876", withNDBatch(map[string]string{"item1": `[{"output":"output_1"},{"output":"output_2"}]`}))
-			e = r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"outputList": []any{
-					map[string]any{
-						"input":  "output_1",
-						"output": []any{"output_1"},
-					},
-					map[string]any{
-						"input":  "output_2",
-						"output": []any{"output_2"},
-					},
-				},
-			}, mustUnmarshalToMap(t, e.output))
-
-			// verify querying this node's result for this node debug run
-			result := r.getNodeExeHistory(id, exeID, "178876", nil)
-			assert.Equal(t, mustUnmarshalToMap(t, e.output), mustUnmarshalToMap(t, result.Output))
-
-			// verify querying this node's has succeeded any node debug run
-			result = r.getNodeExeHistory(id, "", "178876", ptr.Of(workflow.NodeHistoryScene_TestRunInput))
-			assert.Equal(t, mustUnmarshalToMap(t, e.output), mustUnmarshalToMap(t, result.Output))
-		})
-	})
-}
-
-func TestStartNodeDefaultValues(t *testing.T) {
-	mockey.PatchConvey("default values", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-		t.Run("no input keys, all fields use default values", func(t *testing.T) {
-			idStr := r.load("start_node_default_values.json")
-			r.publish(idStr, "v0.0.1", true)
-			input := map[string]string{}
-			result, _ := r.openapiSyncRun(idStr, input)
-			assert.Equal(t, result, map[string]any{
-				"ts":    "2025-07-09 21:43:34",
-				"files": "http://imagex.fanlv.fun/tos-cn-i-1heqlfnr21/e81acc11277f421390770618e24e01ce.jpeg~tplv-1heqlfnr21-image.image?x-wf-file_name=20250317-154742.jpeg",
-				"str":   "str",
-				"object": map[string]any{
-					"a": "1",
-				},
-				"array":  []any{"1", "2"},
-				"inter":  int64(100),
-				"number": 12.4,
-				"bool":   false,
-			})
-
-		})
-		t.Run("all fields use default values", func(t *testing.T) {
-			idStr := r.load("start_node_default_values.json")
-			r.publish(idStr, "v0.0.1", true)
-			input := map[string]string{
-				"str":    "",
-				"array":  "[]",
-				"object": "{}",
-			}
-
-			result, _ := r.openapiSyncRun(idStr, input)
-			assert.Equal(t, result, map[string]any{
-				"ts":    "2025-07-09 21:43:34",
-				"files": "http://imagex.fanlv.fun/tos-cn-i-1heqlfnr21/e81acc11277f421390770618e24e01ce.jpeg~tplv-1heqlfnr21-image.image?x-wf-file_name=20250317-154742.jpeg",
-				"str":   "str",
-				"object": map[string]any{
-					"a": "1",
-				},
-				"array":  []any{"1", "2"},
-				"inter":  int64(100),
-				"number": 12.4,
-				"bool":   false,
-			})
-
-		})
-		t.Run("some use default values and some use user-entered values", func(t *testing.T) {
-			idStr := r.load("start_node_default_values.json")
-			r.publish(idStr, "v0.0.1", true)
-			input := map[string]string{
-				"str":    "value",
-				"array":  `["a","b"]`,
-				"object": "{}",
-				"bool":   "true",
-			}
-
-			result, _ := r.openapiSyncRun(idStr, input)
-			assert.Equal(t, result, map[string]any{
-				"ts":    "2025-07-09 21:43:34",
-				"files": "http://imagex.fanlv.fun/tos-cn-i-1heqlfnr21/e81acc11277f421390770618e24e01ce.jpeg~tplv-1heqlfnr21-image.image?x-wf-file_name=20250317-154742.jpeg",
-				"str":   "value",
-				"object": map[string]any{
-					"a": "1",
-				},
-				"array":  []any{"a", "b"},
-				"inter":  int64(100),
-				"number": 12.4,
-				"bool":   true,
-			})
-
-		})
-
-	})
-}
-
-func TestAggregateStreamVariables(t *testing.T) {
-	mockey.PatchConvey("test aggregate stream variables", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		cm1 := &testutil.UTChatModel{
-			StreamResultProvider: func(index int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				return schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     5,
-								CompletionTokens: 6,
-								TotalTokens:      11,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "won't tell",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 8,
-								TotalTokens:      8,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: " you.",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 2,
-								TotalTokens:      2,
-							},
-						},
-					},
-				}), nil
-			},
-		}
-
-		cm2 := &testutil.UTChatModel{
-			StreamResultProvider: func(index int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				return schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     5,
-								CompletionTokens: 6,
-								TotalTokens:      11,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "don't know",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 8,
-								TotalTokens:      8,
-							},
-						},
-					},
-					{
-						Role:    schema.Assistant,
-						Content: ".",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								CompletionTokens: 2,
-								TotalTokens:      2,
-							},
-						},
-					},
-				}), nil
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1737521813 {
-				cm1.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return cm1, nil, nil
-			} else {
-				cm2.ModelType = strconv.FormatInt(params.ModelType, 10)
-				return cm2, nil, nil
-			}
-		}).AnyTimes()
-
-		id := r.load("variable_aggregate/aggregate_streams.json", withPublish("v0.0.1"))
-		exeID := r.testRun(id, map[string]string{
-			"input": "I've got an important question",
-		})
-		e := r.getProcess(id, exeID)
-		e.assertSuccess()
-		assert.Equal(t, "I won't tell you.\nI won't tell you.\n{\"Group1\":\"I won't tell you.\",\"input\":\"I've got an important question\"}", e.output)
-
-		defer r.runServer()()
-
-		sseReader := r.openapiStream(id, map[string]any{
-			"input": "I've got an important question",
-		})
-		err := sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-			t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-			return nil
-		})
-		assert.NoError(t, err)
-	})
-}
-
 func TestListWorkflowAsToolData(t *testing.T) {
 	mockey.PatchConvey("publish list workflow & list workflow as tool data", t, func() {
 		r := newWfTestRunner(t)
@@ -2522,6 +1611,7 @@ func TestListWorkflowAsToolData(t *testing.T) {
 			WorkflowID: id,
 		}
 		_ = post[workflow.DeleteWorkflowResponse](r, deleteReq)
+		time.Sleep(time.Second)
 	})
 }
 
@@ -2556,136 +1646,7 @@ func TestWorkflowDetailAndDetailInfo(t *testing.T) {
 			WorkflowID: id,
 		}
 		_ = post[workflow.DeleteWorkflowResponse](r, deleteReq)
-	})
-}
-
-func TestParallelInterrupts(t *testing.T) {
-	mockey.PatchConvey("test parallel interrupts", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		chatModel1 := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"question": "what's your age?"}`,
-					}, nil
-				} else if index == 1 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"fields": {"user_name": "eino", "user_age": 1}}`,
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-		chatModel2 := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"question": "what's your gender?"}`,
-					}, nil
-				} else if index == 1 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `{"fields": {"nationality": "China", "gender": "prefer not to say"}}`,
-					}, nil
-				} else {
-					return nil, fmt.Errorf("unexpected index: %d", index)
-				}
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1737521813 {
-				return chatModel1, nil, nil
-			} else {
-				return chatModel2, nil, nil
-			}
-		}).AnyTimes()
-
-		id := r.load("parallel_interrupt.json")
-
-		const (
-			qa1NodeID   = "107234"
-			qa2NodeID   = "157915"
-			inputNodeID = "162226"
-		)
-
-		var (
-			interruptSeq []string // total 5 interrupts, the interrupted node ID in sequence
-			qa1Answers   = []string{"my name is eino.", "my age is 1"}
-			qa2Answers   = []string{"I'm from China.", "I prefer not to say my gender"}
-			inputStr     = mustMarshalToString(t, map[string]any{
-				"input": "this is the user input",
-			})
-		)
-
-		exeID := r.testRun(id, map[string]string{})
-		e := r.getProcess(id, exeID)
-		interruptSeq = append(interruptSeq, e.event.NodeID)
-
-		r.testResume(id, exeID, e.event.ID, ternary.IFElse(interruptSeq[0] == qa1NodeID, qa1Answers[0], qa2Answers[0]))
-		e2 := r.getProcess(id, exeID, withPreviousEventID(e.event.ID))
-		interruptSeq = append(interruptSeq, e2.event.NodeID)
-		assert.Equal(t, interruptSeq[0], interruptSeq[1]) // the first two interrupts must happen at the same QA node
-
-		r.testResume(id, exeID, e2.event.ID, ternary.IFElse(interruptSeq[1] == qa1NodeID, qa1Answers[1], qa2Answers[1]))
-		e3 := r.getProcess(id, exeID, withPreviousEventID(e2.event.ID))
-		interruptSeq = append(interruptSeq, e3.event.NodeID)
-
-		var thirdResumeString string
-		switch e3.event.NodeID {
-		case qa1NodeID:
-			thirdResumeString = qa1Answers[0]
-		case qa2NodeID:
-			thirdResumeString = qa2Answers[0]
-		case inputNodeID:
-			thirdResumeString = inputStr
-		default:
-		}
-
-		r.testResume(id, exeID, e3.event.ID, thirdResumeString)
-		e4 := r.getProcess(id, exeID, withPreviousEventID(e3.event.ID))
-		interruptSeq = append(interruptSeq, e4.event.NodeID)
-		assert.Contains(t, []string{qa1NodeID, qa2NodeID}, interruptSeq[2]) // fourth interrupt must be either qa1 or qa2
-		assert.NotEqual(t, interruptSeq[0], interruptSeq[3])                // fourth interrupt must be different from the first interrupt
-
-		var fourthResumeString string
-		switch e4.event.NodeID {
-		case qa1NodeID:
-			fourthResumeString = ternary.IFElse(interruptSeq[3] == interruptSeq[2], qa1Answers[1], qa1Answers[0])
-		case qa2NodeID:
-			fourthResumeString = ternary.IFElse(interruptSeq[3] == interruptSeq[2], qa2Answers[1], qa2Answers[0])
-		}
-
-		r.testResume(id, exeID, e4.event.ID, fourthResumeString)
-		e5 := r.getProcess(id, exeID, withPreviousEventID(e4.event.ID))
-		interruptSeq = append(interruptSeq, e5.event.NodeID)
-
-		var fifthResumeString string
-		switch e5.event.NodeID {
-		case qa1NodeID:
-			fifthResumeString = qa1Answers[1]
-		case qa2NodeID:
-			fifthResumeString = qa2Answers[1]
-		case inputNodeID:
-			fifthResumeString = inputStr
-		default:
-		}
-
-		r.testResume(id, exeID, e5.event.ID, fifthResumeString)
-		e6 := r.getProcess(id, exeID, withPreviousEventID(e5.event.ID))
-		e6.assertSuccess()
-		assert.Equal(t, map[string]any{
-			"gender":      "prefer not to say",
-			"user_input":  "this is the user input",
-			"user_name":   "eino",
-			"user_age":    int64(1),
-			"nationality": "China",
-		}, mustUnmarshalToMap(t, e6.output))
+		time.Sleep(time.Second)
 	})
 }
 
@@ -2719,596 +1680,6 @@ func TestInputComplex(t *testing.T) {
 				},
 			},
 		}, mustUnmarshalToMap(t, e2.output))
-	})
-}
-
-func TestLLMWithSkills(t *testing.T) {
-	mockey.PatchConvey("workflow llm node with plugin", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		utChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					inputs := map[string]any{
-						"title":        "梦到蛇",
-						"object_input": map[string]any{"t1": "value"},
-						"string_input": "input_string",
-					}
-					args, _ := sonic.MarshalString(inputs)
-					return &schema.Message{
-						Role: schema.Assistant,
-						ToolCalls: []schema.ToolCall{
-							{
-								ID: "1",
-								Function: schema.FunctionCall{
-									Name:      "xz_zgjm",
-									Arguments: args,
-								},
-							},
-						},
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     10,
-								CompletionTokens: 11,
-								TotalTokens:      21,
-							},
-						},
-					}, nil
-
-				} else if index == 1 {
-					toolResult := map[string]any{}
-					err := sonic.UnmarshalString(in[len(in)-1].Content, &toolResult)
-					assert.NoError(t, err)
-					assert.Equal(t, "ok", toolResult["data"])
-
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `黑色通常关联着负面、消极`,
-					}, nil
-				}
-				return nil, fmt.Errorf("unexpected index: %d", index)
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(utChatModel, nil, nil).AnyTimes()
-
-		r.plugin.EXPECT().ExecuteTool(gomock.Any(), gomock.Any(), gomock.Any()).Return(&plugin2.ExecuteToolResponse{
-			TrimmedResp: `{"data":"ok","err_msg":"error","data_structural":{"content":"ok","title":"title","weburl":"weburl"}}`,
-		}, nil).AnyTimes()
-
-		r.plugin.EXPECT().MGetOnlinePlugins(gomock.Any(), gomock.Any()).Return([]*entity3.PluginInfo{
-			{PluginInfo: &plugin2.PluginInfo{ID: 7509353177339133952}},
-		}, nil).AnyTimes()
-
-		r.plugin.EXPECT().MGetDraftPlugins(gomock.Any(), gomock.Any()).Return([]*entity3.PluginInfo{{
-			PluginInfo: &plugin2.PluginInfo{ID: 7509353177339133952},
-		}}, nil).AnyTimes()
-
-		operationString := `{
-  "summary" : "根据输入的解梦标题给出相关对应的解梦内容，如果返回的内容为空，给用户返回固定的话术：如果想了解自己梦境的详细解析，需要给我详细的梦见信息，例如： 梦见XXX",
-  "operationId" : "xz_zgjm",
-  "parameters" : [ {
-    "description" : "查询解梦标题，例如：梦见蛇",
-    "in" : "query",
-    "name" : "title",
-    "required" : true,
-    "schema" : {
-      "description" : "查询解梦标题，例如：梦见蛇",
-      "type" : "string"
-    }
-  } ],
-  "requestBody" : {
-    "content" : {
-      "application/json" : {
-        "schema" : {
-          "type" : "object"
-        }
-      }
-    }
-  },
-  "responses" : {
-    "200" : {
-      "content" : {
-        "application/json" : {
-          "schema" : {
-            "properties" : {
-              "data" : {
-                "description" : "返回数据",
-                "type" : "string"
-              },
-              "data_structural" : {
-                "description" : "返回数据结构",
-                "properties" : {
-                  "content" : {
-                    "description" : "解梦内容",
-                    "type" : "string"
-                  },
-                  "title" : {
-                    "description" : "解梦标题",
-                    "type" : "string"
-                  },
-                  "weburl" : {
-                    "description" : "当前内容关联的页面地址",
-                    "type" : "string"
-                  }
-                },
-                "type" : "object"
-              },
-              "err_msg" : {
-                "description" : "错误提示",
-                "type" : "string"
-              }
-            },
-            "required" : [ "data", "data_structural" ],
-            "type" : "object"
-          }
-        }
-      },
-      "description" : "new desc"
-    },
-    "default" : {
-      "description" : ""
-    }
-  }
-}`
-
-		operation := &plugin2.Openapi3Operation{}
-		_ = sonic.UnmarshalString(operationString, operation)
-
-		r.plugin.EXPECT().MGetOnlineTools(gomock.Any(), gomock.Any()).Return([]*entity3.ToolInfo{
-			{ID: int64(7509353598782816256), Operation: operation},
-		}, nil).AnyTimes()
-
-		r.plugin.EXPECT().MGetDraftTools(gomock.Any(), gomock.Any()).Return([]*entity3.ToolInfo{
-			{ID: int64(7509353598782816256), Operation: operation},
-		}, nil).AnyTimes()
-
-		pluginSrv := plugin3.NewPluginService(r.plugin, r.tos)
-
-		plugin.SetPluginService(pluginSrv)
-
-		t.Run("llm with plugin tool", func(t *testing.T) {
-			id := r.load("llm_node_with_skills/llm_node_with_plugin_tool.json")
-			exeID := r.testRun(id, map[string]string{
-				"e": "mmmm",
-			})
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, `{"output":"mmmm"}`, e.output)
-		})
-	})
-
-	mockey.PatchConvey("workflow llm node with workflow as tool", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		utChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					inputs := map[string]any{
-						"input_string": "input_string",
-						"input_object": map[string]any{"t1": "value"},
-						"input_number": 123,
-					}
-					args, _ := sonic.MarshalString(inputs)
-					return &schema.Message{
-						Role: schema.Assistant,
-						ToolCalls: []schema.ToolCall{
-							{
-								ID: "1",
-								Function: schema.FunctionCall{
-									Name:      fmt.Sprintf("ts_%s_%s", "test_wf", "test_wf"),
-									Arguments: args,
-								},
-							},
-						},
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     10,
-								CompletionTokens: 11,
-								TotalTokens:      21,
-							},
-						},
-					}, nil
-
-				} else if index == 1 {
-					result := make(map[string]any)
-					err := sonic.UnmarshalString(in[len(in)-1].Content, &result)
-					assert.Nil(t, err)
-					assert.Equal(t, nil, result["output_object"])
-					assert.Equal(t, "input_string", result["output_string"])
-					assert.Equal(t, int64(123), result["output_number"])
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `output_data`,
-					}, nil
-				}
-				return nil, fmt.Errorf("unexpected index: %d", index)
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(utChatModel, nil, nil).AnyTimes()
-
-		t.Run("llm with workflow tool", func(t *testing.T) {
-			r.load("llm_node_with_skills/llm_workflow_as_tool.json", withID(7509120431183544356), withPublish("v0.0.1"))
-			id := r.load("llm_node_with_skills/llm_node_with_workflow_tool.json")
-			exeID := r.testRun(id, map[string]string{
-				"input_string": "ok_input_string",
-			})
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, `{"output":"output_data"}`, e.output)
-		})
-	})
-
-	mockey.PatchConvey("workflow llm node with knowledge skill", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		utChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					assert.Equal(t, 1, len(in))
-					assert.Contains(t, in[0].Content, "7512369185624686592", "你是一个知识库意图识别AI Agent", "北京有哪些著名的景点")
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "7512369185624686592",
-						ResponseMeta: &schema.ResponseMeta{
-							Usage: &schema.TokenUsage{
-								PromptTokens:     10,
-								CompletionTokens: 11,
-								TotalTokens:      21,
-							},
-						},
-					}, nil
-
-				} else if index == 1 {
-					assert.Equal(t, 2, len(in))
-					for _, message := range in {
-						if message.Role == schema.System {
-							assert.Equal(t, "你是一个旅游推荐专家，通过用户提出的问题，推荐用户具体城市的旅游景点", message.Content)
-						}
-						if message.Role == schema.User {
-							assert.Contains(t, message.Content, "天安门广场 ‌：中国政治文化中心，见证了近现代重大历史事件‌", "八达岭长城 ‌：明代长城的精华段，被誉为“不到长城非好汉")
-						}
-					}
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: `八达岭长城 ‌：明代长城的精华段，被誉为“不到长城非好汉‌`,
-					}, nil
-				}
-				return nil, fmt.Errorf("unexpected index: %d", index)
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(utChatModel, nil, nil).AnyTimes()
-
-		r.knowledge.EXPECT().ListKnowledgeDetail(gomock.Any(), gomock.Any()).Return(&knowledge.ListKnowledgeDetailResponse{
-			KnowledgeDetails: []*knowledge.KnowledgeDetail{
-				{ID: 7512369185624686592, Name: "旅游景点", Description: "旅游景点介绍"},
-			},
-		}, nil).AnyTimes()
-
-		r.knowledge.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(&knowledge.RetrieveResponse{
-			Slices: []*knowledge.Slice{
-				{DocumentID: "1", Output: "天安门广场 ‌：中国政治文化中心，见证了近现代重大历史事件‌"},
-				{DocumentID: "2", Output: "八达岭长城 ‌：明代长城的精华段，被誉为“不到长城非好汉"},
-			},
-		}, nil).AnyTimes()
-
-		t.Run("llm node with knowledge skill", func(t *testing.T) {
-			id := r.load("llm_node_with_skills/llm_with_knowledge_skill.json")
-			exeID := r.testRun(id, map[string]string{
-				"input": "北京有哪些著名的景点",
-			})
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, `{"output":"八达岭长城 ‌：明代长城的精华段，被誉为“不到长城非好汉‌"}`, e.output)
-		})
-	})
-}
-
-func TestStreamRun(t *testing.T) {
-	mockey.PatchConvey("test stream run", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-		defer r.runServer()()
-
-		chatModel1 := &testutil.UTChatModel{
-			StreamResultProvider: func(_ int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				sr := schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "don't know.",
-					},
-				})
-				return sr, nil
-			},
-		}
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel1, nil, nil).AnyTimes()
-
-		id := r.load("sse/llm_emitter.json")
-
-		type expectedE struct {
-			ID    string
-			Event appworkflow.StreamRunEventType
-			Data  *streamRunData
-		}
-
-		expectedEvents := []expectedE{
-			{
-				ID:    "0",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("198540"),
-					NodeType:     ptr.Of("Message"),
-					NodeTitle:    ptr.Of("输出"),
-					NodeSeqID:    ptr.Of("0"),
-					NodeIsFinish: ptr.Of(false),
-					Content:      ptr.Of("emitter: "),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "1",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("198540"),
-					NodeType:     ptr.Of("Message"),
-					NodeTitle:    ptr.Of("输出"),
-					NodeSeqID:    ptr.Of("1"),
-					NodeIsFinish: ptr.Of(false),
-					Content:      ptr.Of("I "),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "2",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("198540"),
-					NodeType:     ptr.Of("Message"),
-					NodeTitle:    ptr.Of("输出"),
-					NodeSeqID:    ptr.Of("2"),
-					NodeIsFinish: ptr.Of(true),
-					Content:      ptr.Of("don't know."),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "3",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("900001"),
-					NodeType:     ptr.Of("End"),
-					NodeTitle:    ptr.Of("结束"),
-					NodeSeqID:    ptr.Of("0"),
-					NodeIsFinish: ptr.Of(false),
-					Content:      ptr.Of("pure_output_for_subworkflow exit: "),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "4",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("900001"),
-					NodeType:     ptr.Of("End"),
-					NodeTitle:    ptr.Of("结束"),
-					NodeSeqID:    ptr.Of("1"),
-					NodeIsFinish: ptr.Of(false),
-					Content:      ptr.Of("I "),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "5",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("900001"),
-					NodeType:     ptr.Of("End"),
-					NodeTitle:    ptr.Of("结束"),
-					NodeSeqID:    ptr.Of("2"),
-					NodeIsFinish: ptr.Of(true),
-					Content:      ptr.Of("don't know."),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "6",
-				Event: appworkflow.DoneEvent,
-				Data: &streamRunData{
-					DebugURL: ptr.Of(fmt.Sprintf("https://www.coze.cn/work_flow?execute_id={{exeID}}&space_id=123&workflow_id=%s&execute_mode=2", id)),
-				},
-			},
-		}
-
-		index := 0
-
-		r.publish(id, "v0.0.1", true)
-
-		sseReader := r.openapiStream(id, map[string]any{
-			"input": "hello",
-		})
-		err := sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-			t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-			var streamE streamRunData
-			err := sonic.Unmarshal(e.Data, &streamE)
-			assert.NoError(t, err)
-			debugURL := streamE.DebugURL
-			if debugURL != nil {
-				exeID := strings.TrimPrefix(strings.Split(*debugURL, "&")[0], "https://www.coze.cn/work_flow?execute_id=")
-				expectedEvents[index].Data.DebugURL = ptr.Of(strings.ReplaceAll(*debugURL, "{{exeID}}", exeID))
-			}
-			require.Equal(t, expectedEvents[index].Data.Content, streamE.Content)
-			require.Equal(t, expectedEvents[index], expectedE{
-				ID:    e.ID,
-				Event: appworkflow.StreamRunEventType(e.Type),
-				Data:  &streamE,
-			})
-			index++
-			return nil
-		})
-		assert.NoError(t, err)
-
-		mockey.PatchConvey("test llm node debug", func() {
-			chatModel1.Reset()
-			chatModel1.InvokeResultProvider = func(index int, in []*schema.Message) (*schema.Message, error) {
-				if index == 0 {
-					return &schema.Message{
-						Role:    schema.Assistant,
-						Content: "I don't know.",
-					}, nil
-				}
-				return nil, fmt.Errorf("unexpected index: %d", index)
-			}
-
-			exeID := r.nodeDebug(id, "156549", withNDInput(map[string]string{"input": "hello"}))
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"output": "I don't know.",
-			}, mustUnmarshalToMap(t, e.output))
-
-			result := r.getNodeExeHistory(id, exeID, "156549", nil)
-			assert.Equal(t, mustUnmarshalToMap(t, e.output), mustUnmarshalToMap(t, result.Output))
-		})
-	})
-}
-
-func TestStreamResume(t *testing.T) {
-	mockey.PatchConvey("test stream resume", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-		defer r.runServer()()
-
-		id := r.load("input_complex.json")
-
-		type expectedE struct {
-			ID    string
-			Event appworkflow.StreamRunEventType
-			Data  *streamRunData
-		}
-
-		expectedEvents := []expectedE{
-			{
-				ID:    "0",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("191011"),
-					NodeType:     ptr.Of("Input"),
-					NodeTitle:    ptr.Of("输入"),
-					NodeSeqID:    ptr.Of("0"),
-					NodeIsFinish: ptr.Of(true),
-					Content:      ptr.Of("{\"content\":\"[{\\\"type\\\":\\\"object\\\",\\\"name\\\":\\\"input\\\",\\\"schema\\\":[{\\\"type\\\":\\\"string\\\",\\\"name\\\":\\\"name\\\",\\\"required\\\":false},{\\\"type\\\":\\\"integer\\\",\\\"name\\\":\\\"age\\\",\\\"required\\\":false}],\\\"required\\\":false},{\\\"type\\\":\\\"list\\\",\\\"name\\\":\\\"input_list\\\",\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"schema\\\":[{\\\"type\\\":\\\"string\\\",\\\"name\\\":\\\"name\\\",\\\"required\\\":false},{\\\"type\\\":\\\"integer\\\",\\\"name\\\":\\\"age\\\",\\\"required\\\":false}]},\\\"required\\\":false}]\",\"content_type\":\"form_schema\"}"),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "1",
-				Event: appworkflow.InterruptEvent,
-				Data: &streamRunData{
-					DebugURL: ptr.Of(fmt.Sprintf("https://www.coze.cn/work_flow?execute_id={{exeID}}&space_id=123&workflow_id=%s&execute_mode=2", id)),
-					InterruptData: &interruptData{
-						EventID: "%s/%s",
-						Type:    5,
-						Data:    "{\"content\":\"[{\\\"type\\\":\\\"object\\\",\\\"name\\\":\\\"input\\\",\\\"schema\\\":[{\\\"type\\\":\\\"string\\\",\\\"name\\\":\\\"name\\\",\\\"required\\\":false},{\\\"type\\\":\\\"integer\\\",\\\"name\\\":\\\"age\\\",\\\"required\\\":false}],\\\"required\\\":false},{\\\"type\\\":\\\"list\\\",\\\"name\\\":\\\"input_list\\\",\\\"schema\\\":{\\\"type\\\":\\\"object\\\",\\\"schema\\\":[{\\\"type\\\":\\\"string\\\",\\\"name\\\":\\\"name\\\",\\\"required\\\":false},{\\\"type\\\":\\\"integer\\\",\\\"name\\\":\\\"age\\\",\\\"required\\\":false}]},\\\"required\\\":false}]\",\"content_type\":\"form_schema\"}",
-					},
-				},
-			},
-		}
-
-		var (
-			resumeID string
-			index    int
-		)
-
-		r.publish(id, "v0.0.1", true)
-
-		sseReader := r.openapiStream(id, map[string]any{})
-		err := sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-			t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-			if e.Type == string(appworkflow.InterruptEvent) {
-				var event streamRunData
-				err := sonic.Unmarshal(e.Data, &event)
-				assert.NoError(t, err)
-				resumeID = event.InterruptData.EventID
-			}
-
-			var streamE streamRunData
-			err := sonic.Unmarshal(e.Data, &streamE)
-			assert.NoError(t, err)
-			debugURL := streamE.DebugURL
-			if debugURL != nil {
-				exeID := strings.TrimPrefix(strings.Split(*debugURL, "&")[0], "https://www.coze.cn/work_flow?execute_id=")
-				expectedEvents[index].Data.DebugURL = ptr.Of(strings.ReplaceAll(*debugURL, "{{exeID}}", exeID))
-			}
-			if streamE.InterruptData != nil {
-				expectedEvents[index].Data.InterruptData.EventID = streamE.InterruptData.EventID
-			}
-			assert.Equal(t, expectedEvents[index], expectedE{
-				ID:    e.ID,
-				Event: appworkflow.StreamRunEventType(e.Type),
-				Data:  &streamE,
-			})
-			index++
-			return nil
-		})
-		assert.NoError(t, err)
-
-		expectedEvents = []expectedE{
-			{
-				ID:    "0",
-				Event: appworkflow.MessageEvent,
-				Data: &streamRunData{
-					NodeID:       ptr.Of("900001"),
-					NodeType:     ptr.Of("End"),
-					NodeTitle:    ptr.Of("结束"),
-					NodeSeqID:    ptr.Of("0"),
-					NodeIsFinish: ptr.Of(true),
-					Content:      ptr.Of("{\"output\":{\"age\":1,\"name\":\"eino\"},\"output_list\":[{\"age\":null,\"name\":\"user_1\"},{\"age\":2,\"name\":null}]}"),
-					ContentType:  ptr.Of("text"),
-				},
-			},
-			{
-				ID:    "1",
-				Event: appworkflow.DoneEvent,
-				Data: &streamRunData{
-					DebugURL: ptr.Of(fmt.Sprintf("https://www.coze.cn/work_flow?execute_id={{exeID}}&space_id=123&workflow_id=%s&execute_mode=2", id)),
-				},
-			},
-		}
-
-		index = 0
-
-		sseReader = r.openapiResume(id, resumeID, mustMarshalToString(t, map[string]any{
-			"input":      `{"name": "eino", "age": 1}`,
-			"input_list": `[{"name":"user_1"},{"age":2}]`,
-		}))
-		err = sseReader.ForEach(t.Context(), func(e *sse.Event) error {
-			t.Logf("sse id: %s, type: %s, data: %s", e.ID, e.Type, string(e.Data))
-			var streamE streamRunData
-			err := sonic.Unmarshal(e.Data, &streamE)
-			assert.NoError(t, err)
-			debugURL := streamE.DebugURL
-			if debugURL != nil {
-				exeID := strings.TrimPrefix(strings.Split(*debugURL, "&")[0], "https://www.coze.cn/work_flow?execute_id=")
-				expectedEvents[index].Data.DebugURL = ptr.Of(strings.ReplaceAll(*debugURL, "{{exeID}}", exeID))
-			}
-			if streamE.InterruptData != nil {
-				expectedEvents[index].Data.InterruptData.EventID = streamE.InterruptData.EventID
-			}
-			assert.Equal(t, expectedEvents[index], expectedE{
-				ID:    e.ID,
-				Event: appworkflow.StreamRunEventType(e.Type),
-				Data:  &streamE,
-			})
-			index++
-			return nil
-		})
-		assert.NoError(t, err)
 	})
 }
 
@@ -3381,7 +1752,7 @@ func TestGetLLMNodeFCSettingsDetailAndMerged(t *testing.T) {
     }
   }
 }`
-		operation := &plugin2.Openapi3Operation{}
+		operation := &pluginmodel.Openapi3Operation{}
 		_ = sonic.UnmarshalString(operationString, operation)
 
 		r := newWfTestRunner(t)
@@ -3389,11 +1760,11 @@ func TestGetLLMNodeFCSettingsDetailAndMerged(t *testing.T) {
 
 		r.plugin.EXPECT().MGetOnlinePlugins(gomock.Any(), gomock.Any()).Return([]*entity3.PluginInfo{
 			{
-				PluginInfo: &plugin2.PluginInfo{
+				PluginInfo: &pluginmodel.PluginInfo{
 					ID:       123,
 					SpaceID:  123,
 					Version:  ptr.Of("v0.0.1"),
-					Manifest: &plugin2.PluginManifest{NameForHuman: "p1", DescriptionForHuman: "desc"},
+					Manifest: &pluginmodel.PluginManifest{NameForHuman: "p1", DescriptionForHuman: "desc"},
 				},
 			},
 		}, nil).AnyTimes()
@@ -3401,8 +1772,8 @@ func TestGetLLMNodeFCSettingsDetailAndMerged(t *testing.T) {
 			{ID: 123, Operation: operation},
 		}, nil).AnyTimes()
 
-		pluginSrv := plugin3.NewPluginService(r.plugin, r.tos)
-		plugin.SetPluginService(pluginSrv)
+		pluginSrv := pluginImpl.InitDomainService(r.plugin, r.tos)
+		crossplugin.SetDefaultSVC(pluginSrv)
 
 		t.Run("plugin tool info ", func(t *testing.T) {
 			fcSettingDetailReq := &workflow.GetLLMNodeFCSettingDetailRequest{
@@ -3499,18 +1870,18 @@ func TestGetLLMNodeFCSettingsDetailAndMerged(t *testing.T) {
   }
 }`
 
-		operation := &plugin2.Openapi3Operation{}
+		operation := &pluginmodel.Openapi3Operation{}
 		_ = sonic.UnmarshalString(operationString, operation)
 		r := newWfTestRunner(t)
 		defer r.closeFn()
 
 		r.plugin.EXPECT().MGetOnlinePlugins(gomock.Any(), gomock.Any()).Return([]*entity3.PluginInfo{
 			{
-				PluginInfo: &plugin2.PluginInfo{
+				PluginInfo: &pluginmodel.PluginInfo{
 					ID:       123,
 					SpaceID:  123,
 					Version:  ptr.Of("v0.0.1"),
-					Manifest: &plugin2.PluginManifest{NameForHuman: "p1", DescriptionForHuman: "desc"},
+					Manifest: &pluginmodel.PluginManifest{NameForHuman: "p1", DescriptionForHuman: "desc"},
 				},
 			},
 		}, nil).AnyTimes()
@@ -3518,8 +1889,8 @@ func TestGetLLMNodeFCSettingsDetailAndMerged(t *testing.T) {
 			{ID: 123, Operation: operation},
 		}, nil).AnyTimes()
 
-		pluginSrv := plugin3.NewPluginService(r.plugin, r.tos)
-		plugin.SetPluginService(pluginSrv)
+		pluginSrv := pluginImpl.InitDomainService(r.plugin, r.tos)
+		crossplugin.SetDefaultSVC(pluginSrv)
 
 		t.Run("plugin merge", func(t *testing.T) {
 			fcSettingMergedReq := &workflow.GetLLMNodeFCSettingsMergedRequest{
@@ -3643,7 +2014,7 @@ func TestNodeDebugLoop(t *testing.T) {
 			}, nil
 		}).AnyTimes()
 
-		code.SetCodeRunner(runner)
+		coderunner.SetCodeRunner(runner)
 		id := r.load("loop_with_object_input.json")
 		exeID := r.nodeDebug(id, "122149",
 			withNDInput(map[string]string{"input": `[{"a":"1"},{"a":"2"}]`}))
@@ -3685,7 +2056,7 @@ func TestCopyWorkflow(t *testing.T) {
 
 		_, err := appworkflow.GetWorkflowDomainSVC().Get(context.Background(), &vo.GetPolicy{
 			ID:       wid,
-			QType:    vo.FromDraft,
+			QType:    workflowModel.FromDraft,
 			CommitID: "",
 		})
 		assert.NotNil(t, err)
@@ -3747,7 +2118,7 @@ func TestReleaseApplicationWorkflows(t *testing.T) {
 
 		wf, err = appworkflow.GetWorkflowDomainSVC().Get(context.Background(), &vo.GetPolicy{
 			ID:      100100100100,
-			QType:   vo.FromSpecificVersion,
+			QType:   workflowModel.FromSpecificVersion,
 			Version: version,
 		})
 		assert.NoError(t, err)
@@ -3761,10 +2132,10 @@ func TestReleaseApplicationWorkflows(t *testing.T) {
 		var validateCv func(ns []*vo.Node)
 		validateCv = func(ns []*vo.Node) {
 			for _, n := range ns {
-				if n.Type == vo.BlockTypeBotSubWorkflow {
+				if n.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					assert.Equal(t, n.Data.Inputs.WorkflowVersion, version)
 				}
-				if n.Type == vo.BlockTypeBotAPI {
+				if n.Type == entity.NodeTypePlugin.IDStr() {
 					for _, apiParam := range n.Data.Inputs.APIParams {
 						// In the application, the workflow plugin node When the plugin version is equal to 0, the plugin is a plugin created in the application
 						if apiParam.Name == "pluginVersion" {
@@ -3773,7 +2144,7 @@ func TestReleaseApplicationWorkflows(t *testing.T) {
 					}
 				}
 
-				if n.Type == vo.BlockTypeBotLLM {
+				if n.Type == entity.NodeTypeLLM.IDStr() {
 					if n.Data.Inputs.FCParam != nil && n.Data.Inputs.FCParam.PluginFCParam != nil {
 						// In the application, the workflow llm node When the plugin version is equal to 0, the plugin is a plugin created in the application
 						for _, p := range n.Data.Inputs.FCParam.PluginFCParam.PluginList {
@@ -3849,160 +2220,6 @@ func TestReleaseApplicationWorkflows(t *testing.T) {
 	})
 }
 
-func TestLLMException(t *testing.T) {
-	mockey.PatchConvey("test llm exception", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		id := r.load("exception/llm_default_output_retry_timeout.json")
-
-		mainChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				return nil, errors.New("first invoke error")
-			},
-		}
-
-		fallbackChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				return &schema.Message{
-					Role:    schema.Assistant,
-					Content: `{"name":"eino","age":1}`,
-				}, nil
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1737521813 {
-				return mainChatModel, nil, nil
-			} else {
-				return fallbackChatModel, nil, nil
-			}
-		}).AnyTimes()
-
-		mockey.PatchConvey("two retries to succeed", func() {
-			exeID := r.nodeDebug(id, "103929", withNDInput(map[string]string{"input": "hello"}))
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"name":      "eino",
-				"age":       int64(1),
-				"isSuccess": true,
-			}, mustUnmarshalToMap(t, e.output))
-		})
-
-		mockey.PatchConvey("timeout then use default output", func() {
-			fallbackChatModel.InvokeResultProvider = func(index int, in []*schema.Message) (*schema.Message, error) {
-				time.Sleep(500 * time.Millisecond)
-				return &schema.Message{
-					Role:    schema.Assistant,
-					Content: `{"name":"eino","age":1}`,
-				}, nil
-			}
-
-			exeID := r.nodeDebug(id, "103929", withNDInput(map[string]string{"input": "hello"}))
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"name":      "zhangsan",
-				"age":       int64(3),
-				"isSuccess": false,
-				"errorBody": map[string]any{
-					"errorMessage": "node timeout",
-					"errorCode":    int64(errno.ErrNodeTimeout),
-				},
-			}, mustUnmarshalToMap(t, e.output))
-		})
-	})
-}
-
-func TestLLMExceptionThenThrow(t *testing.T) {
-	mockey.PatchConvey("test llm exception then throw", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		id := r.load("exception/llm_timeout_throw.json")
-
-		mainChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				return nil, errors.New("first invoke error")
-			},
-		}
-
-		fallbackChatModel := &testutil.UTChatModel{
-			InvokeResultProvider: func(index int, in []*schema.Message) (*schema.Message, error) {
-				time.Sleep(500 * time.Millisecond)
-				return &schema.Message{
-					Role:    schema.Assistant,
-					Content: `{"name":"eino","age":1}`,
-				}, nil
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, params *model.LLMParams) (model2.BaseChatModel, *modelmgr.Model, error) {
-			if params.ModelType == 1737521813 {
-				return mainChatModel, nil, nil
-			} else {
-				return fallbackChatModel, nil, nil
-			}
-		}).AnyTimes()
-
-		exeID := r.nodeDebug(id, "103929", withNDInput(map[string]string{"input": "hello"}))
-		e := r.getProcess(id, exeID)
-		assert.Equal(t, workflow.WorkflowExeStatus(entity.WorkflowFailed), e.status)
-	})
-}
-
-func TestCodeExceptionBranch(t *testing.T) {
-	mockey.PatchConvey("test code exception branch", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		id := r.load("exception/code_exception_branch.json")
-
-		mockey.PatchConvey("exception branch", func() {
-			code.SetCodeRunner(direct.NewRunner())
-
-			exeID := r.testRun(id, map[string]string{"input": "hello"})
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"output":  false,
-				"output1": "code result: false",
-			}, mustUnmarshalToMap(t, e.output))
-		})
-
-		mockey.PatchConvey("normal branch", func() {
-			mockCodeRunner := mockcode.NewMockRunner(r.ctrl)
-			mockey.Mock(code.GetCodeRunner).Return(mockCodeRunner).Build()
-			mockCodeRunner.EXPECT().Run(gomock.Any(), gomock.Any()).Return(&coderunner.RunResponse{
-				Result: map[string]any{
-					"key0": "value0",
-					"key1": []string{"value1", "value2"},
-					"key2": map[string]any{},
-				},
-			}, nil).AnyTimes()
-
-			exeID := r.testRun(id, map[string]string{"input": "hello"})
-			e := r.getProcess(id, exeID)
-			e.assertSuccess()
-			assert.Equal(t, map[string]any{
-				"output":  true,
-				"output1": "",
-			}, mustUnmarshalToMap(t, e.output))
-
-			mockey.PatchConvey("sync run", func() {
-				r.publish(id, "v0.0.1", false)
-
-				result, _ := r.openapiSyncRun(id, map[string]string{"input": "hello"})
-				assert.Equal(t, map[string]any{
-					"output":  true,
-					"output1": "",
-				}, result)
-			})
-		})
-	})
-}
-
 func TestCopyWorkflowAppToLibrary(t *testing.T) {
 	r := newWfTestRunner(t)
 	appworkflow.SVC.IDGenerator = r.idGen
@@ -4027,7 +2244,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 	mockey.PatchConvey("copy with subworkflow, subworkflow with external resource ", t, func() {
 		var copiedIDs = make([]int64, 0)
-		var mockPublishWorkflowResource func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error
+		var mockPublishWorkflowResource func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error
 		var ignoreIDs = map[int64]bool{
 			7515027325977624576: true,
 			7515027249628708864: true,
@@ -4035,15 +2252,15 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 			7515027150387281920: true,
 			7515027091302121472: true,
 		}
-		mockPublishWorkflowResource = func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error {
-			if ignoreIDs[event.WorkflowID] {
+		mockPublishWorkflowResource = func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error {
+			if ignoreIDs[workflowID] {
 				return nil
 			}
 			wf, err := appworkflow.GetWorkflowDomainSVC().Get(ctx, &vo.GetPolicy{
-				ID:    event.WorkflowID,
-				QType: vo.FromLatestVersion,
+				ID:    workflowID,
+				QType: workflowModel.FromLatestVersion,
 			})
-			copiedIDs = append(copiedIDs, event.WorkflowID)
+			copiedIDs = append(copiedIDs, workflowID)
 			assert.NoError(t, err)
 			assert.Equal(t, "v0.0.1", wf.Version)
 			canvas := &vo.Canvas{}
@@ -4057,8 +2274,8 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 			var validateSubWorkflowIDs func(nodes []*vo.Node)
 			validateSubWorkflowIDs = func(nodes []*vo.Node) {
 				for _, node := range nodes {
-					switch node.Type {
-					case vo.BlockTypeBotAPI:
+					switch entity.IDStrToNodeType(node.Type) {
+					case entity.NodeTypePlugin:
 						apiParams := slices.ToMap(node.Data.Inputs.APIParams, func(e *vo.Param) (string, *vo.Param) {
 							return e.Name, e
 						})
@@ -4076,28 +2293,28 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 							assert.Equal(t, "100100", pID)
 						}
 
-					case vo.BlockTypeBotSubWorkflow:
+					case entity.NodeTypeSubWorkflow:
 						assert.True(t, copiedIDMap[node.Data.Inputs.WorkflowID])
 						wfId, err := strconv.ParseInt(node.Data.Inputs.WorkflowID, 10, 64)
 						assert.NoError(t, err)
 
 						subWf, err := appworkflow.GetWorkflowDomainSVC().Get(ctx, &vo.GetPolicy{
 							ID:    wfId,
-							QType: vo.FromLatestVersion,
+							QType: workflowModel.FromLatestVersion,
 						})
 						assert.NoError(t, err)
 						subworkflowCanvas := &vo.Canvas{}
 						err = sonic.UnmarshalString(subWf.Canvas, subworkflowCanvas)
 						assert.NoError(t, err)
 						validateSubWorkflowIDs(subworkflowCanvas.Nodes)
-					case vo.BlockTypeBotLLM:
-						if node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.WorkflowFCParam != nil {
+					case entity.NodeTypeLLM:
+						if node.Data.Inputs.LLM != nil && node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.WorkflowFCParam != nil {
 							for _, w := range node.Data.Inputs.FCParam.WorkflowFCParam.WorkflowList {
 								assert.True(t, copiedIDMap[w.WorkflowID])
 							}
 						}
 
-						if node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.PluginFCParam != nil {
+						if node.Data.Inputs.LLM != nil && node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.PluginFCParam != nil {
 							for _, p := range node.Data.Inputs.FCParam.PluginFCParam.PluginList {
 								if p.PluginVersion == "0" {
 									assert.Equal(t, "100100", p.PluginID)
@@ -4105,18 +2322,18 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 							}
 						}
 
-						if node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.KnowledgeFCParam != nil {
+						if node.Data.Inputs.LLM != nil && node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.KnowledgeFCParam != nil {
 							for _, k := range node.Data.Inputs.FCParam.KnowledgeFCParam.KnowledgeList {
 								assert.Equal(t, "100100", k.ID)
 							}
 						}
-					case vo.BlockTypeBotDataset, vo.BlockTypeBotDatasetWrite:
+					case entity.NodeTypeKnowledgeIndexer, entity.NodeTypeKnowledgeRetriever:
 						datasetListInfoParam := node.Data.Inputs.DatasetParam[0]
 						knowledgeIDs := datasetListInfoParam.Input.Value.Content.([]any)
 						for idx := range knowledgeIDs {
 							assert.Equal(t, "100100", knowledgeIDs[idx].(string))
 						}
-					case vo.BlockTypeDatabase, vo.BlockTypeDatabaseSelect, vo.BlockTypeDatabaseInsert, vo.BlockTypeDatabaseDelete, vo.BlockTypeDatabaseUpdate:
+					case entity.NodeTypeDatabaseCustomSQL, entity.NodeTypeDatabaseQuery, entity.NodeTypeDatabaseInsert, entity.NodeTypeDatabaseDelete, entity.NodeTypeDatabaseUpdate:
 						for _, d := range node.Data.Inputs.DatabaseInfoList {
 							assert.Equal(t, "100100", d.DatabaseInfoID)
 						}
@@ -4132,7 +2349,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 		}
 
-		r.search.EXPECT().PublishWorkflowResource(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(mockPublishWorkflowResource).AnyTimes()
+		defer mockey.Mock(appworkflow.PublishWorkflowResource).To(mockPublishWorkflowResource).Build().UnPatch()
 
 		appID := "7513788954458456064"
 		appIDInt64, _ := strconv.ParseInt(appID, 10, 64)
@@ -4143,7 +2360,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 		r.load("copy_to_app/child_1.json", withID(7515027150387281920), withProjectID(appIDInt64))
 		r.load("copy_to_app/main.json", withID(7515027091302121472), withProjectID(appIDInt64))
 
-		defer mockey.Mock((*appknowledge.KnowledgeApplicationService).CopyKnowledge).Return(&modelknowledge.CopyKnowledgeResponse{
+		defer mockey.Mock((*appknowledge.KnowledgeApplicationService).CopyKnowledge).Return(&knowledge.CopyKnowledgeResponse{
 			TargetKnowledgeID: 100100,
 		}, nil).Build().UnPatch()
 
@@ -4159,7 +2376,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 		defer mockey.Mock((*appmemory.DatabaseApplicationService).CopyDatabase).To(mockCopyDatabase).Build().UnPatch()
 
-		defer mockey.Mock((*appplugin.PluginApplicationService).CopyPlugin).Return(&appplugin.CopyPluginResponse{
+		defer mockey.Mock((*appplugin.PluginApplicationService).CopyPlugin).Return(&dto.CopyPluginResponse{
 			Plugin: &entity5.PluginInfo{
 				PluginInfo: &pluginmodel.PluginInfo{
 					ID:      100100,
@@ -4175,21 +2392,21 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 	mockey.PatchConvey("copy only with external resource", t, func() {
 		var copiedIDs = make([]int64, 0)
-		var mockPublishWorkflowResource func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error
+		var mockPublishWorkflowResource func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error
 		var ignoreIDs = map[int64]bool{
 			7516518409656336384: true,
 			7516516198096306176: true,
 		}
-		mockPublishWorkflowResource = func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error {
-			if ignoreIDs[event.WorkflowID] {
+		mockPublishWorkflowResource = func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error {
+			if ignoreIDs[workflowID] {
 				return nil
 			}
 			wf, err := appworkflow.GetWorkflowDomainSVC().Get(ctx, &vo.GetPolicy{
-				ID:    event.WorkflowID,
-				QType: vo.FromLatestVersion,
+				ID:    workflowID,
+				QType: workflowModel.FromLatestVersion,
 			})
 
-			copiedIDs = append(copiedIDs, event.WorkflowID)
+			copiedIDs = append(copiedIDs, workflowID)
 			assert.NoError(t, err)
 			assert.Equal(t, "v0.0.1", wf.Version)
 			canvas := &vo.Canvas{}
@@ -4202,10 +2419,10 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 			var validateSubWorkflowIDs func(nodes []*vo.Node)
 			validateSubWorkflowIDs = func(nodes []*vo.Node) {
 				for _, node := range nodes {
-					switch node.Type {
-					case vo.BlockTypeBotSubWorkflow:
+					switch entity.IDStrToNodeType(node.Type) {
+					case entity.NodeTypeSubWorkflow:
 						assert.True(t, copiedIDMap[node.Data.Inputs.WorkflowID])
-					case vo.BlockTypeBotLLM:
+					case entity.NodeTypeLLM:
 						if node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.WorkflowFCParam != nil {
 							for _, w := range node.Data.Inputs.FCParam.WorkflowFCParam.WorkflowList {
 								assert.True(t, copiedIDMap[w.WorkflowID])
@@ -4223,13 +2440,13 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 								assert.Equal(t, "100100", k.ID)
 							}
 						}
-					case vo.BlockTypeBotDataset, vo.BlockTypeBotDatasetWrite:
+					case entity.NodeTypeKnowledgeIndexer, entity.NodeTypeKnowledgeRetriever:
 						datasetListInfoParam := node.Data.Inputs.DatasetParam[0]
 						knowledgeIDs := datasetListInfoParam.Input.Value.Content.([]any)
 						for idx := range knowledgeIDs {
 							assert.Equal(t, "100100", knowledgeIDs[idx].(string))
 						}
-					case vo.BlockTypeDatabase, vo.BlockTypeDatabaseSelect, vo.BlockTypeDatabaseInsert, vo.BlockTypeDatabaseDelete, vo.BlockTypeDatabaseUpdate:
+					case entity.NodeTypeDatabaseCustomSQL, entity.NodeTypeDatabaseQuery, entity.NodeTypeDatabaseInsert, entity.NodeTypeDatabaseDelete, entity.NodeTypeDatabaseUpdate:
 						for _, d := range node.Data.Inputs.DatabaseInfoList {
 							assert.Equal(t, "100100", d.DatabaseInfoID)
 						}
@@ -4244,9 +2461,9 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 		}
 
-		r.search.EXPECT().PublishWorkflowResource(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(mockPublishWorkflowResource).AnyTimes()
+		defer mockey.Mock(appworkflow.PublishWorkflowResource).To(mockPublishWorkflowResource).Build().UnPatch()
 
-		defer mockey.Mock((*appknowledge.KnowledgeApplicationService).CopyKnowledge).Return(&modelknowledge.CopyKnowledgeResponse{
+		defer mockey.Mock((*appknowledge.KnowledgeApplicationService).CopyKnowledge).Return(&knowledge.CopyKnowledgeResponse{
 			TargetKnowledgeID: 100100,
 		}, nil).Build().UnPatch()
 
@@ -4262,7 +2479,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 
 		defer mockey.Mock((*appmemory.DatabaseApplicationService).CopyDatabase).To(mockCopyDatabase).Build().UnPatch()
 
-		defer mockey.Mock((*appplugin.PluginApplicationService).CopyPlugin).Return(&appplugin.CopyPluginResponse{
+		defer mockey.Mock((*appplugin.PluginApplicationService).CopyPlugin).Return(&dto.CopyPluginResponse{
 			Plugin: &entity5.PluginInfo{
 				PluginInfo: &pluginmodel.PluginInfo{
 					ID:      time.Now().Unix(),
@@ -4285,6 +2502,7 @@ func TestCopyWorkflowAppToLibrary(t *testing.T) {
 func TestMoveWorkflowAppToLibrary(t *testing.T) {
 	mockey.PatchConvey("test move workflow", t, func() {
 		r := newWfTestRunner(t)
+		r.publishPatcher.UnPatch()
 		defer r.closeFn()
 		vars := map[string]*vo.TypeInfo{
 			"app_v1": {
@@ -4304,21 +2522,21 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 		r.varGetter.EXPECT().GetAppVariablesMeta(gomock.Any(), gomock.Any(), gomock.Any()).Return(vars, nil).AnyTimes()
 		t.Run("move workflow", func(t *testing.T) {
 
-			var mockPublishWorkflowResource func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error
+			var mockPublishWorkflowResource func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error
 
 			named2Idx := []string{"c1", "c2", "cc1", "main"}
 			callCount := 0
 			initialWf2ID := map[string]int64{}
 			old2newID := map[int64]int64{}
-			mockPublishWorkflowResource = func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error {
+			mockPublishWorkflowResource = func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error {
 				if callCount <= 3 {
-					initialWf2ID[named2Idx[callCount]] = event.WorkflowID
+					initialWf2ID[named2Idx[callCount]] = workflowID
 					callCount++
 					return nil
 				}
-				if OpType == crosssearch.Created {
-					if oldID, ok := initialWf2ID[*event.Name]; ok {
-						old2newID[oldID] = event.WorkflowID
+				if op == search.Created {
+					if oldID, ok := initialWf2ID[*r.Name]; ok {
+						old2newID[oldID] = workflowID
 					}
 				}
 
@@ -4326,7 +2544,7 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 
 			}
 
-			r.search.EXPECT().PublishWorkflowResource(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(mockPublishWorkflowResource).AnyTimes()
+			defer mockey.Mock(appworkflow.PublishWorkflowResource).To(mockPublishWorkflowResource).Build().UnPatch()
 
 			defer mockey.Mock((*appknowledge.KnowledgeApplicationService).MoveKnowledgeToLibrary).Return(nil).Build().UnPatch()
 			defer mockey.Mock((*appmemory.DatabaseApplicationService).MoveDatabaseToLibrary).Return(&appmemory.MoveDatabaseToLibraryResponse{}, nil).Build().UnPatch()
@@ -4350,7 +2568,7 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 			err = sonic.Unmarshal(data, mainCanvas)
 			assert.NoError(t, err)
 			for _, node := range mainCanvas.Nodes {
-				if node.Type == vo.BlockTypeBotSubWorkflow {
+				if node.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					if node.Data.Inputs.WorkflowID == "7516826260387921920" {
 						node.Data.Inputs.WorkflowID = c1IdStr
 					}
@@ -4366,7 +2584,7 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 			err = sonic.Unmarshal(cc1Data, cc1Canvas)
 			assert.NoError(t, err)
 			for _, node := range cc1Canvas.Nodes {
-				if node.Type == vo.BlockTypeBotSubWorkflow {
+				if node.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					if node.Data.Inputs.WorkflowID == "7516826283318181888" {
 						node.Data.Inputs.WorkflowID = c2IdStr
 					}
@@ -4417,7 +2635,7 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 			assert.NoError(t, err)
 
 			for _, node := range newMainCanvas.Nodes {
-				if node.Type == vo.BlockTypeBotSubWorkflow {
+				if node.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					assert.True(t, newSubWorkflowID[node.Data.Inputs.WorkflowID])
 					assert.Equal(t, "v0.0.1", node.Data.Inputs.WorkflowVersion)
 				}
@@ -4431,11 +2649,13 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 			assert.NoError(t, err)
 
 			for _, node := range cc1Canvas.Nodes {
-				if node.Type == vo.BlockTypeBotSubWorkflow {
+				if node.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					assert.True(t, newSubWorkflowID[node.Data.Inputs.WorkflowID])
 					assert.Equal(t, "v0.0.1", node.Data.Inputs.WorkflowVersion)
 				}
 			}
+
+			time.Sleep(time.Second)
 		})
 
 	})
@@ -4444,6 +2664,7 @@ func TestMoveWorkflowAppToLibrary(t *testing.T) {
 func TestDuplicateWorkflowsByAppID(t *testing.T) {
 	mockey.PatchConvey("test duplicate work", t, func() {
 		r := newWfTestRunner(t)
+		r.publishPatcher.UnPatch()
 		defer r.closeFn()
 
 		vars := map[string]*vo.TypeInfo{
@@ -4463,7 +2684,7 @@ func TestDuplicateWorkflowsByAppID(t *testing.T) {
 
 		r.varGetter.EXPECT().GetAppVariablesMeta(gomock.Any(), gomock.Any(), gomock.Any()).Return(vars, nil).AnyTimes()
 		var copiedIDs = make([]int64, 0)
-		var mockPublishWorkflowResource func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error
+		var mockPublishWorkflowResource func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error
 		var ignoreIDs = map[int64]bool{
 			7515027325977624576: true,
 			7515027249628708864: true,
@@ -4472,16 +2693,16 @@ func TestDuplicateWorkflowsByAppID(t *testing.T) {
 			7515027091302121472: true,
 			7515027325977624579: true,
 		}
-		mockPublishWorkflowResource = func(ctx context.Context, OpType crosssearch.OpType, event *crosssearch.Resource) error {
-			if ignoreIDs[event.WorkflowID] {
+		mockPublishWorkflowResource = func(ctx context.Context, workflowID int64, mode *int32, op search.OpType, r *search.ResourceDocument) error {
+			if ignoreIDs[workflowID] {
 				return nil
 			}
-			copiedIDs = append(copiedIDs, event.WorkflowID)
+			copiedIDs = append(copiedIDs, workflowID)
 			return nil
 
 		}
 
-		r.search.EXPECT().PublishWorkflowResource(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(mockPublishWorkflowResource).AnyTimes()
+		defer mockey.Mock(appworkflow.PublishWorkflowResource).To(mockPublishWorkflowResource).Build().UnPatch()
 
 		appIDInt64 := int64(7513788954458456064)
 
@@ -4502,10 +2723,10 @@ func TestDuplicateWorkflowsByAppID(t *testing.T) {
 		var validateSubWorkflowIDs func(nodes []*vo.Node)
 		validateSubWorkflowIDs = func(nodes []*vo.Node) {
 			for _, node := range nodes {
-				if node.Type == vo.BlockTypeBotSubWorkflow {
+				if node.Type == entity.NodeTypeSubWorkflow.IDStr() {
 					assert.True(t, copiedIDMap[node.Data.Inputs.WorkflowID])
 				}
-				if node.Type == vo.BlockTypeBotLLM {
+				if node.Type == entity.NodeTypeLLM.IDStr() {
 					if node.Data.Inputs.FCParam != nil && node.Data.Inputs.FCParam.WorkflowFCParam != nil {
 						for _, w := range node.Data.Inputs.FCParam.WorkflowFCParam.WorkflowList {
 							assert.True(t, copiedIDMap[w.WorkflowID])
@@ -4524,47 +2745,6 @@ func TestDuplicateWorkflowsByAppID(t *testing.T) {
 			validateSubWorkflowIDs(cs.Nodes)
 		}
 
-	})
-}
-
-func TestMismatchedTypeConvert(t *testing.T) {
-	mockey.PatchConvey("test mismatched type convert", t, func() {
-		r := newWfTestRunner(t)
-		defer r.closeFn()
-
-		chatModel := &testutil.UTChatModel{
-			StreamResultProvider: func(_ int, in []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
-				sr := schema.StreamReaderFromArray([]*schema.Message{
-					{
-						Role:    schema.Assistant,
-						Content: "I ",
-					},
-					{
-						Role:    schema.Assistant,
-						Content: "don't know.",
-					},
-				})
-				return sr, nil
-			},
-		}
-
-		r.modelManage.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(chatModel, nil, nil).AnyTimes()
-
-		id := r.load("type_convert/mismatched_types.json")
-		exeID := r.testRun(id, map[string]string{
-			"input": "what's the meaning of life",
-			"arr_str": `[
-  "{\"a\":1}"
-]`,
-			"bool_a":  "True",
-			"int_a":   "2",
-			"num_a":   "3.5",
-			"obj":     `{"b":true}`,
-			"obj_str": `{"s":[2,false]}`,
-		})
-		e := r.getProcess(id, exeID)
-		e.assertSuccess()
-		assert.Equal(t, "false [] {\"s\":[2,false]} [{\"a\":1}] 3 0 {\"b\":true}\nI don't know. {\"a\":1} false", e.output)
 	})
 }
 
@@ -4649,20 +2829,491 @@ func TestJsonSerializationDeserializationWithWarning(t *testing.T) {
 	})
 }
 
-func TestSetAppVariablesFOrSubProcesses(t *testing.T) {
-	mockey.PatchConvey("app variables for sub_process", t, func() {
+func TestChatFlowRoleAPI(t *testing.T) {
+	mockey.PatchConvey("chat flow role api", t, func() {
 		r := newWfTestRunner(t)
 		defer r.closeFn()
-		r.appVarS.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return("1.0", nil).AnyTimes()
-		idStr := r.load("app_variables_for_sub_process.json")
-		r.publish(idStr, "v0.0.1", true)
-		result, _ := r.openapiSyncRun(idStr, map[string]any{
-			"input": "ax",
+
+		workflowID := r.load("/chatflow/start_exit.json", withMode(workflow.WorkflowMode_ChatFlow))
+		userConfig := &workflow.UserInputConfig{
+			DefaultInputMode: 1,
+			SendVoiceMode:    0,
+		}
+
+		cr := &workflow.CreateChatFlowRoleRequest{
+			ChatFlowRole: &workflow.ChatFlowRole{
+				WorkflowID:      workflowID,
+				Name:            ptr.Of("role_name"),
+				Description:     ptr.Of("role_desc"),
+				UserInputConfig: userConfig,
+			},
+		}
+
+		CreateResp := post[workflow.CreateChatFlowRoleResponse](r, cr)
+		id := CreateResp.ID
+
+		gr := &workflow.GetChatFlowRoleRequest{
+			WorkflowID: workflowID,
+		}
+
+		w := ut.PerformRequest(r.h.Engine, "GET", fmt.Sprintf("/api/workflow_api/chat_flow_role/get?workflow_id=%s", gr.WorkflowID), nil,
+			ut.Header{Key: "Content-Type", Value: "application/json"})
+		res := w.Result()
+		assert.Equal(t, http.StatusOK, res.StatusCode(), string(res.Body()))
+		GetResp := &workflow.GetChatFlowRoleResponse{}
+		err := sonic.Unmarshal(res.Body(), GetResp)
+		assert.NoError(r.t, err)
+		role := GetResp.Role
+		assert.Equal(t, "role_name", *role.Name)
+		assert.Equal(t, "role_desc", *role.Description)
+		assert.Equal(t, userConfig, role.UserInputConfig)
+
+		cr = &workflow.CreateChatFlowRoleRequest{
+			ChatFlowRole: &workflow.ChatFlowRole{
+				ID:          id,
+				WorkflowID:  workflowID,
+				Name:        ptr.Of("update_name"),
+				Description: ptr.Of("update_desc"),
+			},
+		}
+
+		_ = post[workflow.CreateChatFlowRoleResponse](r, cr)
+		w = ut.PerformRequest(r.h.Engine, "GET", fmt.Sprintf("/api/workflow_api/chat_flow_role/get?workflow_id=%s", gr.WorkflowID), nil,
+			ut.Header{Key: "Content-Type", Value: "application/json"})
+		res = w.Result()
+		assert.Equal(t, http.StatusOK, res.StatusCode(), string(res.Body()))
+		GetResp = &workflow.GetChatFlowRoleResponse{}
+		err = sonic.Unmarshal(res.Body(), GetResp)
+		assert.NoError(t, err)
+		assert.Equal(t, "update_name", *GetResp.Role.Name)
+		assert.Equal(t, "update_desc", *GetResp.Role.Description)
+		assert.Equal(t, userConfig, role.UserInputConfig)
+
+		dr := &workflow.DeleteChatFlowRoleRequest{
+			WorkflowID: workflowID,
+			ID:         id,
+		}
+		_ = post[workflow.DeleteChatFlowRoleResponse](r, dr)
+
+		w = ut.PerformRequest(r.h.Engine, "GET", fmt.Sprintf("/api/workflow_api/chat_flow_role/get?workflow_id=%s", gr.WorkflowID), nil,
+			ut.Header{Key: "Content-Type", Value: "application/json"})
+		res = w.Result()
+		assert.Equal(t, http.StatusOK, res.StatusCode(), string(res.Body()))
+		GetResp = &workflow.GetChatFlowRoleResponse{}
+		err = sonic.Unmarshal(res.Body(), GetResp)
+		assert.NoError(t, err)
+		assert.Nil(t, GetResp.Role)
+
+	})
+}
+
+func TestConversationOfChatFlow(t *testing.T) {
+
+	mockey.PatchConvey("conversation", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		ts := time.Now().Unix()
+		cName := "conversation_" + strconv.FormatInt(ts, 10)
+		ctx := t.Context()
+		t.Run("create & update & delete conversation template", func(t *testing.T) {
+			createReq := &workflow.CreateProjectConversationDefRequest{
+				ProjectID:        "123",
+				ConversationName: cName,
+				SpaceID:          "123",
+			}
+			response := post[workflow.CreateProjectConversationDefResponse](r, createReq)
+			response2 := post[workflow.CreateProjectConversationDefResponse](r, createReq)
+			assert.Equal(t, response2.Code, int64(720702200))
+			assert.Contains(t, response2.Msg, fmt.Sprintf("conversation name conversation_%d is duplicated", ts))
+			canvas := &vo.Canvas{}
+			data, err := os.ReadFile(fmt.Sprintf("../../../domain/workflow/internal/canvas/examples/%s", "chatflow/new_chatflow.json"))
+			assert.NoError(t, err)
+			err = sonic.Unmarshal(data, canvas)
+			assert.NoError(t, err)
+
+			updateName := cName + "update_name"
+			replacedWorkflow := func(nodes []*vo.Node) error {
+				var startNode *vo.Node
+				for _, node := range nodes {
+					if node.Type == entity.NodeTypeEntry.IDStr() {
+						startNode = node
+					}
+				}
+				if startNode == nil {
+					return fmt.Errorf("start node not found")
+				}
+				for idx, vAny := range startNode.Data.Outputs {
+					v, err := vo.ParseVariable(vAny)
+					if err != nil {
+						return err
+					}
+					if v.Name == vo.ConversationNameKey {
+						v.DefaultValue = cName
+					}
+					startNode.Data.Outputs[idx] = v
+				}
+				return nil
+			}
+
+			err = replacedWorkflow(canvas.Nodes)
+			assert.NoError(t, err)
+			data, err = sonic.Marshal(canvas)
+			assert.NoError(t, err)
+
+			_ = r.load("chatflow/new_chatflow.json", withID(ts), withProjectID(123), withWorkflowData(data), withMode(workflow.WorkflowMode_ChatFlow))
+
+			post[workflow.UpdateProjectConversationDefResponse](r, &workflow.UpdateProjectConversationDefRequest{
+				ProjectID:        "123",
+				UniqueID:         response.UniqueID,
+				ConversationName: updateName,
+			})
+
+			schemaJson, err := getCanvas(ctx, strconv.FormatInt(ts, 10))
+			assert.NoError(t, err)
+			canvas = &vo.Canvas{}
+			err = sonic.UnmarshalString(schemaJson, canvas)
+			assert.NoError(t, err)
+			for _, node := range canvas.Nodes {
+				if node.Type == entity.NodeTypeEntry.IDStr() {
+					for _, vAny := range node.Data.Outputs {
+						v, err := vo.ParseVariable(vAny)
+						assert.NoError(t, err)
+						if v.Name == vo.ConversationNameKey {
+							assert.Equal(t, v.DefaultValue, updateName)
+						}
+					}
+				}
+			}
+
+			deleteResponse := post[workflow.DeleteProjectConversationDefResponse](r, &workflow.DeleteProjectConversationDefRequest{
+				ProjectID: "123",
+				CheckOnly: true,
+				UniqueID:  response.UniqueID,
+				Replace:   make(map[string]string),
+				SpaceID:   "123",
+			})
+
+			workflowID := deleteResponse.NeedReplace[0].WorkflowID
+			assert.Equal(t, 1, len(deleteResponse.NeedReplace))
+			assert.Equal(t, strconv.FormatInt(ts, 10), workflowID)
+
+			createReq = &workflow.CreateProjectConversationDefRequest{
+				ProjectID:        "123",
+				ConversationName: cName + "copy",
+				SpaceID:          "123",
+			}
+			_ = post[workflow.CreateProjectConversationDefResponse](r, createReq)
+
+			post[workflow.DeleteProjectConversationDefResponse](r, &workflow.DeleteProjectConversationDefRequest{
+				ProjectID: "123",
+				CheckOnly: false,
+				UniqueID:  response.UniqueID,
+				Replace: map[string]string{
+					workflowID: cName + "copy",
+				},
+				SpaceID: "123",
+			})
+
+			schemaJson, err = getCanvas(ctx, strconv.FormatInt(ts, 10))
+			assert.NoError(t, err)
+			canvas = &vo.Canvas{}
+			err = sonic.UnmarshalString(schemaJson, canvas)
+			assert.NoError(t, err)
+
+			for _, node := range canvas.Nodes {
+				if node.Type == entity.NodeTypeEntry.IDStr() {
+					for _, vAny := range node.Data.Outputs {
+						v, err := vo.ParseVariable(vAny)
+						assert.NoError(t, err)
+						if v.Name == vo.ConversationNameKey {
+							assert.Equal(t, v.DefaultValue, cName+"copy")
+						}
+					}
+				}
+			}
 		})
 
-		assert.Equal(t, result, map[string]any{
-			"output": "ax",
-		})
+		t.Run("list conversation template", func(t *testing.T) {
+			tsStr := strconv.FormatInt(ts, 10)
+			c0Name := "conversation_list_" + tsStr + "0"
+			c1Name := "conversation_list_" + tsStr + "1"
+			c3bakName := "conversation_bak_list_" + tsStr + "3"
 
+			createReq := &workflow.CreateProjectConversationDefRequest{
+				ProjectID:        tsStr,
+				ConversationName: c0Name,
+				SpaceID:          "123",
+			}
+			_ = post[workflow.CreateProjectConversationDefResponse](r, createReq)
+
+			createReq = &workflow.CreateProjectConversationDefRequest{
+				ProjectID:        tsStr,
+				ConversationName: c1Name,
+				SpaceID:          "123",
+			}
+			_ = post[workflow.CreateProjectConversationDefResponse](r, createReq)
+
+			createReq = &workflow.CreateProjectConversationDefRequest{
+				ProjectID:        tsStr,
+				ConversationName: c3bakName,
+				SpaceID:          "123",
+			}
+			_ = post[workflow.CreateProjectConversationDefResponse](r, createReq)
+
+			response := post[workflow.ListProjectConversationResponse](r, &workflow.ListProjectConversationRequest{
+				ProjectID:    tsStr,
+				CreateMethod: workflow.CreateMethod_ManualCreate,
+				CreateEnv:    workflow.CreateEnv_Draft,
+				Cursor:       "1",
+				Limit:        10000,
+				ConnectorID:  "100001",
+			})
+			assert.Equal(t, 3, len(response.Data))
+			nameMap := map[string]bool{
+				c0Name:    true,
+				c1Name:    true,
+				c3bakName: true,
+			}
+			for _, v := range response.Data {
+				assert.True(t, nameMap[v.ConversationName])
+			}
+
+			response = post[workflow.ListProjectConversationResponse](r, &workflow.ListProjectConversationRequest{
+				ProjectID:    tsStr,
+				CreateMethod: workflow.CreateMethod_ManualCreate,
+				CreateEnv:    workflow.CreateEnv_Draft,
+				Cursor:       "1",
+				Limit:        10000,
+				ConnectorID:  "100001",
+				NameLike:     "conversation_list",
+			})
+			assert.Equal(t, 2, len(response.Data))
+		})
+	})
+
+}
+
+func TestConversationListNodes(t *testing.T) {
+	mockey.PatchConvey("list dynamic conversation", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		cID := time.Now().UnixNano()
+		appID := cID
+		r.conversation.EXPECT().CreateConversation(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID: appID,
+		}, nil).AnyTimes()
+		idStr := r.load("conversation_manager/conversation_list.json")
+		execID := r.testRun(idStr, map[string]string{
+			"CONVERSATION_NAME": "name" + strconv.FormatInt(cID, 10),
+		}, withRunProjectID(appID))
+		e := r.getProcess(idStr, execID)
+		type conversationInfo struct {
+			ConversationName string `json:"conversationName"`
+			ConversationId   string `json:"conversationId"`
+		}
+		var output []conversationInfo
+		err := sonic.UnmarshalString(e.output, &output)
+		assert.Nil(t, err)
+		expected := []conversationInfo{
+			{
+				ConversationId:   strconv.FormatInt(cID, 10),
+				ConversationName: "name" + strconv.FormatInt(cID, 10),
+			},
+		}
+		assert.Equal(t, expected, output)
+	})
+
+	mockey.PatchConvey("list static conversation", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		cID := time.Now().UnixNano()
+		appID := cID
+		r.conversation.EXPECT().CreateConversation(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID: appID,
+		}, nil).AnyTimes()
+		createReq := &workflow.CreateProjectConversationDefRequest{
+			ProjectID:        strconv.FormatInt(appID, 10),
+			ConversationName: "name" + strconv.FormatInt(cID, 10),
+			SpaceID:          "123",
+		}
+		post[workflow.CreateProjectConversationDefResponse](r, createReq)
+		idStr := r.load("conversation_manager/conversation_list.json")
+		execID := r.testRun(idStr, map[string]string{
+			"CONVERSATION_NAME": "name" + strconv.FormatInt(cID, 10),
+		}, withRunProjectID(appID))
+		e := r.getProcess(idStr, execID)
+		type conversationInfo struct {
+			ConversationName string `json:"conversationName"`
+			ConversationId   string `json:"conversationId"`
+		}
+		var output []conversationInfo
+		err := sonic.UnmarshalString(e.output, &output)
+		assert.Nil(t, err)
+		expected := []conversationInfo{
+			{
+				ConversationId:   strconv.FormatInt(cID, 10),
+				ConversationName: "name" + strconv.FormatInt(cID, 10),
+			},
+		}
+		assert.Equal(t, expected, output)
+	})
+}
+
+func TestConversationHistoryNodes(t *testing.T) {
+	mockey.PatchConvey("conversation_history & clear conversation_history for dynamic conversation", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		cID := time.Now().UnixNano()
+		appID := cID
+		r.conversation.EXPECT().CreateConversation(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID: appID,
+		}, nil).AnyTimes()
+		mID := time.Now().Unix()
+		r.message.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&message.Message{
+			ID: mID,
+		}, nil).AnyTimes()
+		rID := time.Now().UnixNano()
+		r.agentRun.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&agententity.RunRecordMeta{
+			ID: rID,
+		}, nil).AnyTimes()
+		sID := time.Now().UnixNano()
+		r.conversation.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID:        cID,
+			SectionID: sID,
+		}, nil).AnyTimes()
+		r.message.EXPECT().GetLatestRunIDs(gomock.Any(), gomock.Any()).Return([]int64{rID}, nil).AnyTimes()
+		r.message.EXPECT().GetMessagesByRunIDs(gomock.Any(), gomock.Any()).Return(&message0.GetMessagesByRunIDsResponse{
+			Messages: []*message0.WfMessage{
+				{
+					ID:   mID,
+					Role: schema.User,
+					Text: ptr.Of("你好"),
+				},
+			},
+		}, nil).AnyTimes()
+		r.conversation.EXPECT().ClearConversationHistory(gomock.Any(), gomock.Any()).Return(&conventity.NewConversationCtxResponse{
+			ID: cID,
+		}, nil).AnyTimes()
+
+		idStr := r.load("conversation_manager/conversation_history.json")
+		execID := r.testRun(idStr, map[string]string{
+			"CONVERSATION_NAME": "name" + strconv.FormatInt(cID, 10),
+		}, withRunProjectID(appID))
+		e := r.getProcess(idStr, execID)
+		e.assertSuccess()
+		output := e.output
+		var outputMap map[string]any
+		err := sonic.Unmarshal([]byte(output), &outputMap)
+		assert.Nil(t, err)
+		assert.Equal(t, true, outputMap["isSuccess"])
+		var messageList []any
+		msg := map[string]any{
+			"role":    "user",
+			"content": "你好",
+		}
+		messageList = append(messageList, msg)
+		assert.Equal(t, messageList, outputMap["history_list"])
+	})
+
+	mockey.PatchConvey("conversation_history & clear conversation_history for static conversation", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		cID := time.Now().UnixNano()
+		appID := cID
+		r.conversation.EXPECT().CreateConversation(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID: appID,
+		}, nil).AnyTimes()
+		createReq := &workflow.CreateProjectConversationDefRequest{
+			ProjectID:        strconv.FormatInt(appID, 10),
+			ConversationName: "name" + strconv.FormatInt(cID, 10),
+			SpaceID:          "123",
+		}
+		post[workflow.CreateProjectConversationDefResponse](r, createReq)
+		mID := time.Now().Unix()
+		r.message.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&message.Message{
+			ID: mID,
+		}, nil).AnyTimes()
+		rID := time.Now().UnixNano()
+		r.agentRun.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&agententity.RunRecordMeta{
+			ID: rID,
+		}, nil).AnyTimes()
+		sID := time.Now().UnixNano()
+		r.conversation.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID:        cID,
+			SectionID: sID,
+		}, nil).AnyTimes()
+		r.message.EXPECT().GetLatestRunIDs(gomock.Any(), gomock.Any()).Return([]int64{rID}, nil).AnyTimes()
+		r.message.EXPECT().GetMessagesByRunIDs(gomock.Any(), gomock.Any()).Return(&message0.GetMessagesByRunIDsResponse{
+			Messages: []*message0.WfMessage{
+				{
+					ID:   mID,
+					Role: schema.Assistant,
+					Text: ptr.Of("你好, 我是coze"),
+				},
+			},
+		}, nil).AnyTimes()
+		r.conversation.EXPECT().ClearConversationHistory(gomock.Any(), gomock.Any()).Return(&conventity.NewConversationCtxResponse{
+			ID: cID,
+		}, nil).AnyTimes()
+
+		idStr := r.load("conversation_manager/conversation_history.json")
+		execID := r.testRun(idStr, map[string]string{
+			"CONVERSATION_NAME": "name" + strconv.FormatInt(cID, 10),
+		}, withRunProjectID(appID))
+		e := r.getProcess(idStr, execID)
+		e.assertSuccess()
+		output := e.output
+		var outputMap map[string]any
+		err := sonic.Unmarshal([]byte(output), &outputMap)
+		assert.Nil(t, err)
+		assert.Equal(t, true, outputMap["isSuccess"])
+		var messageList []any
+		msg := map[string]any{
+			"role":    "assistant",
+			"content": "你好, 我是coze",
+		}
+		messageList = append(messageList, msg)
+		assert.Equal(t, messageList, outputMap["history_list"])
+	})
+
+	mockey.PatchConvey("conversation_history blank list", t, func() {
+		r := newWfTestRunner(t)
+		defer r.closeFn()
+		cID := time.Now().UnixNano()
+		appID := cID
+		r.conversation.EXPECT().CreateConversation(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID: appID,
+		}, nil).AnyTimes()
+		mID := time.Now().Unix()
+		r.message.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&message.Message{
+			ID: mID,
+		}, nil).AnyTimes()
+		rID := time.Now().UnixNano()
+		r.agentRun.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&agententity.RunRecordMeta{
+			ID: rID,
+		}, nil).AnyTimes()
+		sID := time.Now().UnixNano()
+		r.conversation.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(&conventity.Conversation{
+			ID:        cID,
+			SectionID: sID,
+		}, nil).AnyTimes()
+		r.message.EXPECT().GetLatestRunIDs(gomock.Any(), gomock.Any()).Return([]int64{}, nil).AnyTimes()
+		r.message.EXPECT().GetMessagesByRunIDs(gomock.Any(), gomock.Any()).Return(&message0.GetMessagesByRunIDsResponse{}, nil).AnyTimes()
+		r.conversation.EXPECT().ClearConversationHistory(gomock.Any(), gomock.Any()).Return(&conventity.NewConversationCtxResponse{
+			ID: cID,
+		}, nil).AnyTimes()
+
+		idStr := r.load("conversation_manager/conversation_history.json")
+		execID := r.testRun(idStr, map[string]string{
+			"CONVERSATION_NAME": "name" + strconv.FormatInt(cID, 10),
+		}, withRunProjectID(appID))
+		e := r.getProcess(idStr, execID)
+		e.assertSuccess()
+		output := e.output
+		var outputMap map[string]any
+		err := sonic.Unmarshal([]byte(output), &outputMap)
+		assert.Nil(t, err)
+		assert.Equal(t, true, outputMap["isSuccess"])
+		assert.Equal(t, []any{}, outputMap["history_list"])
 	})
 }

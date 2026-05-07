@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import {
   DEFAULT_NODE_META_PATH,
   DEFAULT_OUTPUTS_PATH,
@@ -25,6 +25,7 @@ import {
   type WorkflowNodeJSON,
   type WorkflowNodeRegistry,
 } from '@coze-workflow/base';
+import { PluginFrom } from '@coze-arch/bot-api/playground_api';
 
 import { type WorkflowPlaygroundContext } from '@/workflow-playground-context';
 import { type NodeTestMeta } from '@/test-run-kit';
@@ -49,6 +50,10 @@ const getPluginNodeService = (context: WorkflowPlaygroundContext) =>
 const getApiDetailApiParam = (nodeJson: any) =>
   nodeJson.data?.inputs?.apiParam || nodeJson?.inputs?.apiParam || [];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getPluginFrom = (nodeJson: any) =>
+  nodeJson.data?.inputs?.pluginFrom || nodeJson?.inputs?.pluginFrom;
+
 export const PLUGIN_NODE_REGISTRY: WorkflowNodeRegistry<NodeTestMeta> = {
   type: StandardNodeType.Api,
   meta: {
@@ -57,7 +62,7 @@ export const PLUGIN_NODE_REGISTRY: WorkflowNodeRegistry<NodeTestMeta> = {
     nodeMetaPath: DEFAULT_NODE_META_PATH,
     outputsPath: DEFAULT_OUTPUTS_PATH,
     batchPath: DEFAULT_BATCH_PATH,
-    inputParametersPath: INPUT_PARAMS_PATH, // 入参路径，试运行等功能依赖该路径提取参数
+    inputParametersPath: INPUT_PARAMS_PATH, // Imported parameter path, practice running and other functions rely on this path to extract parameters
     test,
     helpLink: ({ apiName }) =>
       NOT_FREE_PLUGINS_APINAME_DOC_MAP[apiName] ||
@@ -71,10 +76,11 @@ export const PLUGIN_NODE_REGISTRY: WorkflowNodeRegistry<NodeTestMeta> = {
     }
 
     const pluginService = getPluginNodeService(context);
+    const pluginFrom = getPluginFrom(nodeJson);
     const identifier = getApiNodeIdentifier(
       getApiDetailApiParam(nodeJson as ApiNodeData),
     );
-    await pluginService.load(identifier);
+    await pluginService.load(identifier, pluginFrom);
   },
 
   checkError: (nodeJson, context: WorkflowPlaygroundContext) => {
@@ -90,6 +96,14 @@ export const PLUGIN_NODE_REGISTRY: WorkflowNodeRegistry<NodeTestMeta> = {
 
   getHeaderExtraOperation: (formValues: ApiNodeFormData) => {
     const identifier = getApiNodeIdentifier(formValues?.inputs?.apiParam ?? []);
+
+    if (
+      IS_OPEN_SOURCE &&
+      formValues?.inputs?.pluginFrom !== PluginFrom.FromSaas
+    ) {
+      return null;
+    }
+
     return createPluginLink(identifier);
   },
 

@@ -24,30 +24,34 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"regexp"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/tealeg/xlsx/v3"
 	"gorm.io/gorm"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/crossdomain/database"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/bot_common"
-	"github.com/coze-dev/coze-studio/backend/api/model/table"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossvariables"
+	"github.com/coze-dev/coze-studio/backend/infra/cache"
+
+	"github.com/coze-dev/coze-studio/backend/api/model/app/bot_common"
+	"github.com/coze-dev/coze-studio/backend/api/model/data/database/table"
+	"github.com/coze-dev/coze-studio/backend/crossdomain/database/model"
+	database "github.com/coze-dev/coze-studio/backend/crossdomain/database/model"
+	crossvariables "github.com/coze-dev/coze-studio/backend/crossdomain/variables"
 	entity2 "github.com/coze-dev/coze-studio/backend/domain/memory/database/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/internal/convertor"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/internal/dal/query"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/internal/physicaltable"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/internal/sheet"
 	"github.com/coze-dev/coze-studio/backend/domain/memory/database/repository"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/idgen"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/rdb"
-	entity3 "github.com/coze-dev/coze-studio/backend/infra/contract/rdb/entity"
-	sqlparsercontract "github.com/coze-dev/coze-studio/backend/infra/contract/sqlparser"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/sqlparser"
+	"github.com/coze-dev/coze-studio/backend/infra/idgen"
+	"github.com/coze-dev/coze-studio/backend/infra/rdb"
+	entity3 "github.com/coze-dev/coze-studio/backend/infra/rdb/entity"
+	"github.com/coze-dev/coze-studio/backend/infra/sqlparser"
+	sqlparsercontract "github.com/coze-dev/coze-studio/backend/infra/sqlparser"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
@@ -64,10 +68,10 @@ type databaseService struct {
 	onlineDAO          repository.OnlineDAO
 	agentToDatabaseDAO repository.AgentToDatabaseDAO
 	storage            storage.Storage
-	cache              *redis.Client
+	cache              cache.Cmdable
 }
 
-func NewService(rdb rdb.RDB, db *gorm.DB, generator idgen.IDGenerator, storage storage.Storage, cacheCli *redis.Client) Database {
+func NewService(rdb rdb.RDB, db *gorm.DB, generator idgen.IDGenerator, storage storage.Storage, cacheCli cache.Cmdable) Database {
 	return &databaseService{
 		rdb:                rdb,
 		db:                 db,
@@ -390,7 +394,7 @@ func (d databaseService) MGetDatabase(ctx context.Context, req *MGetDatabaseRequ
 	for _, onlineDatabase := range onlineDatabases {
 		if needSys, ok := onlineID2NeedSysFields[onlineDatabase.ID]; ok && needSys {
 			if onlineDatabase.FieldList == nil {
-				onlineDatabase.FieldList = make([]*database.FieldItem, 0, 3)
+				onlineDatabase.FieldList = make([]*model.FieldItem, 0, 3)
 			}
 			onlineDatabase.FieldList = append(onlineDatabase.FieldList, physicaltable.GetDisplayCreateTimeField(), physicaltable.GetDisplayUidField(), physicaltable.GetDisplayIDField())
 		}
@@ -641,7 +645,7 @@ func (d databaseService) UpdateDatabaseRecord(ctx context.Context, req *UpdateDa
 			cond := &rdb.Condition{
 				Field:    database.DefaultUidColName,
 				Operator: entity3.OperatorEqual,
-				Value:    req.UserID,
+				Value:    strconv.FormatInt(req.UserID, 10),
 			}
 
 			condition.Conditions = append(condition.Conditions, cond)
@@ -711,7 +715,7 @@ func (d databaseService) DeleteDatabaseRecord(ctx context.Context, req *DeleteDa
 		cond := &rdb.Condition{
 			Field:    database.DefaultUidColName,
 			Operator: entity3.OperatorEqual,
-			Value:    req.UserID,
+			Value:    strconv.FormatInt(req.UserID, 10),
 		}
 
 		condition.Conditions = append(condition.Conditions, cond)
@@ -773,20 +777,21 @@ func (d databaseService) ListDatabaseRecord(ctx context.Context, req *ListDataba
 			Conditions: []*rdb.Condition{cond},
 		}
 	}
-
-	if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite {
-		cond := &rdb.Condition{
-			Field:    database.DefaultUidColName,
-			Operator: entity3.OperatorEqual,
-			Value:    req.UserID,
-		}
-
-		if complexCondition == nil {
-			complexCondition = &rdb.ComplexCondition{
-				Conditions: []*rdb.Condition{cond},
+	if req.TableType == table.TableType_DraftTable {
+		if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite {
+			cond := &rdb.Condition{
+				Field:    database.DefaultUidColName,
+				Operator: entity3.OperatorEqual,
+				Value:    strconv.FormatInt(req.UserID, 10),
 			}
-		} else {
-			complexCondition.Conditions = append(complexCondition.Conditions, cond)
+
+			if complexCondition == nil {
+				complexCondition = &rdb.ComplexCondition{
+					Conditions: []*rdb.Condition{cond},
+				}
+			} else {
+				complexCondition.Conditions = append(complexCondition.Conditions, cond)
+			}
 		}
 	}
 
@@ -804,7 +809,7 @@ func (d databaseService) ListDatabaseRecord(ctx context.Context, req *ListDataba
 
 	selectResp, err := d.rdb.SelectData(ctx, &rdb.SelectDataRequest{
 		TableName: physicalTableName,
-		Fields:    []string{}, // 空表示查询所有字段
+		Fields:    []string{}, // Null means query all fields
 		Where:     complexCondition,
 		OrderBy:   orderBy,
 		Limit:     &limit,
@@ -1042,7 +1047,11 @@ func (d databaseService) executeCustomSQL(ctx context.Context, req *ExecuteSQLRe
 		return nil, fmt.Errorf("SQL is empty")
 	}
 
-	operation, err := sqlparser.NewSQLParser().GetSQLOperation(*req.SQL)
+	if err := validateCustomSQL(*req.SQL); err != nil {
+		return nil, fmt.Errorf("SQL validation failed: %v", err)
+	}
+
+	operation, err := sqlparser.New().GetSQLOperation(*req.SQL)
 	if err != nil {
 		return nil, err
 	}
@@ -1069,18 +1078,31 @@ func (d databaseService) executeCustomSQL(ctx context.Context, req *ExecuteSQLRe
 		},
 	}
 
-	parsedSQL, err := sqlparser.NewSQLParser().ParseAndModifySQL(*req.SQL, tableColumnMapping)
+	parsedSQL, err := sqlparser.New().ParseAndModifySQL(*req.SQL, tableColumnMapping)
 	if err != nil {
 		return nil, fmt.Errorf("parse sql failed: %v", err)
 	}
 
+	if err := validateParsedSQL(parsedSQL); err != nil {
+		return nil, fmt.Errorf("SQL validation failed: %v", err)
+	}
+	// add rw mode
+	if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite && len(req.UserID) != 0 {
+		switch operation {
+		case sqlparsercontract.OperationTypeSelect, sqlparsercontract.OperationTypeUpdate, sqlparsercontract.OperationTypeDelete:
+			parsedSQL, err = sqlparser.New().AppendSQLFilter(parsedSQL, sqlparsercontract.SQLFilterOpAnd, fmt.Sprintf("%s = '%s'", database.DefaultUidColName, req.UserID))
+			if err != nil {
+				return nil, fmt.Errorf("append sql filter failed: %v", err)
+			}
+		}
+	}
 	insertResult := make([]map[string]interface{}, 0)
 	if operation == sqlparsercontract.OperationTypeInsert {
 		cid := consts.CozeConnectorID
 		if req.ConnectorID != nil {
 			cid = *req.ConnectorID
 		}
-		nums, err := sqlparser.NewSQLParser().GetInsertDataNums(parsedSQL)
+		nums, err := sqlparser.New().GetInsertDataNums(parsedSQL)
 		if err != nil {
 			return nil, err
 		}
@@ -1102,7 +1124,7 @@ func (d databaseService) executeCustomSQL(ctx context.Context, req *ExecuteSQLRe
 			for i, id := range ids {
 				iIDs[i] = id
 			}
-			parsedSQL, _, err = sqlparser.NewSQLParser().AddColumnsToInsertSQL(parsedSQL, []sqlparsercontract.ColumnValue{
+			parsedSQL, _, err = sqlparser.New().AddColumnsToInsertSQL(parsedSQL, []sqlparsercontract.ColumnValue{
 				{
 					ColName: database.DefaultCidColName,
 					Value:   cid,
@@ -1116,7 +1138,7 @@ func (d databaseService) executeCustomSQL(ctx context.Context, req *ExecuteSQLRe
 				return nil, fmt.Errorf("add columns to insert sql failed: %v", err)
 			}
 		} else if req.SQLType == database.SQLType_Parameterized {
-			parsedSQL, existingCols, err = sqlparser.NewSQLParser().AddColumnsToInsertSQL(parsedSQL, []sqlparsercontract.ColumnValue{
+			parsedSQL, existingCols, err = sqlparser.New().AddColumnsToInsertSQL(parsedSQL, []sqlparsercontract.ColumnValue{
 				{
 					ColName: database.DefaultCidColName,
 				},
@@ -1198,32 +1220,10 @@ func (d databaseService) executeSelectSQL(ctx context.Context, req *ExecuteSQLRe
 		selectReq.Fields = fields
 	}
 
-	var complexCond *rdb.ComplexCondition
-	var err error
-	if req.Condition != nil {
-		complexCond, err = convertCondition(ctx, req.Condition, fieldNameToPhysical, req.SQLParams)
-		if err != nil {
-			return nil, fmt.Errorf("convert condition failed: %v", err)
-		}
+	complexCond, err := generateComplexCond(ctx, req, tableInfo.RwMode, fieldNameToPhysical)
+	if err != nil {
+		return nil, err
 	}
-
-	// add rw mode
-	if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite && req.UserID != "" {
-		cond := &rdb.Condition{
-			Field:    database.DefaultUidColName,
-			Operator: entity3.OperatorEqual,
-			Value:    req.UserID,
-		}
-
-		if complexCond == nil {
-			complexCond = &rdb.ComplexCondition{
-				Conditions: []*rdb.Condition{cond},
-			}
-		} else {
-			complexCond.Conditions = append(complexCond.Conditions, cond)
-		}
-	}
-
 	if complexCond != nil {
 		selectReq.Where = complexCond
 	}
@@ -1365,27 +1365,10 @@ func (d databaseService) executeUpdateSQL(ctx context.Context, req *ExecuteSQLRe
 		}
 	}
 
-	condParams := req.SQLParams[index:]
-	complexCond, err := convertCondition(ctx, req.Condition, fieldNameToPhysical, condParams)
+	req.SQLParams = req.SQLParams[index:]
+	complexCond, err := generateComplexCond(ctx, req, tableInfo.RwMode, fieldNameToPhysical)
 	if err != nil {
-		return -1, fmt.Errorf("convert condition failed: %v", err)
-	}
-
-	// add rw mode
-	if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite && req.UserID != "" {
-		cond := &rdb.Condition{
-			Field:    database.DefaultUidColName,
-			Operator: entity3.OperatorEqual,
-			Value:    req.UserID,
-		}
-
-		if complexCond == nil {
-			complexCond = &rdb.ComplexCondition{
-				Conditions: []*rdb.Condition{cond},
-			}
-		} else {
-			complexCond.Conditions = append(complexCond.Conditions, cond)
-		}
+		return -1, err
 	}
 
 	updateResp, err := d.rdb.UpdateData(ctx, &rdb.UpdateDataRequest{
@@ -1406,26 +1389,9 @@ func (d databaseService) executeDeleteSQL(ctx context.Context, req *ExecuteSQLRe
 		return -1, fmt.Errorf("missing delete condition")
 	}
 
-	complexCond, err := convertCondition(ctx, req.Condition, fieldNameToPhysical, req.SQLParams)
+	complexCond, err := generateComplexCond(ctx, req, tableInfo.RwMode, fieldNameToPhysical)
 	if err != nil {
-		return -1, fmt.Errorf("convert condition failed: %v", err)
-	}
-
-	// add rw mode
-	if tableInfo.RwMode == table.BotTableRWMode_LimitedReadWrite && req.UserID != "" {
-		cond := &rdb.Condition{
-			Field:    database.DefaultUidColName,
-			Operator: entity3.OperatorEqual,
-			Value:    req.UserID,
-		}
-
-		if complexCond == nil {
-			complexCond = &rdb.ComplexCondition{
-				Conditions: []*rdb.Condition{cond},
-			}
-		} else {
-			complexCond.Conditions = append(complexCond.Conditions, cond)
-		}
+		return -1, err
 	}
 
 	deleteResp, err := d.rdb.DeleteData(ctx, &rdb.DeleteDataRequest{
@@ -1527,13 +1493,6 @@ func convertCondition(ctx context.Context, cond *database.ComplexCondition, fiel
 		}
 		result.Conditions = conditions
 	}
-	// if cond.NestedConditions != nil {
-	//	nested, err := convertCondition(cond.NestedConditions, fieldMap, params)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	result.NestedConditions = []*rdb.ComplexCondition{nested}
-	// }
 
 	return result, nil
 }
@@ -1918,22 +1877,22 @@ func (d databaseService) GetDatabaseFileProgressData(ctx context.Context, req *G
 		currentFileName = draftCurrentFileName
 	}
 	totalNum, err := d.cache.Get(ctx, fmt.Sprintf(totalKey, req.DatabaseID, req.UserID)).Int64()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, cache.Nil) {
 		return nil, err
 	}
 
 	progressNum, err := d.cache.Get(ctx, fmt.Sprintf(progressKey, req.DatabaseID, req.UserID)).Int64()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, cache.Nil) {
 		return nil, err
 	}
 
 	failReason, err := d.cache.Get(ctx, fmt.Sprintf(failKey, req.DatabaseID, req.UserID)).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, cache.Nil) {
 		return nil, err
 	}
 
 	fileName, err := d.cache.Get(ctx, fmt.Sprintf(currentFileName, req.DatabaseID, req.UserID)).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, cache.Nil) {
 		return nil, err
 	}
 
@@ -2192,4 +2151,105 @@ func (d databaseService) GetAllDatabaseByAppID(ctx context.Context, req *GetAllD
 	return &GetAllDatabaseByAppIDResponse{
 		Databases: onlineDBs,
 	}, nil
+}
+
+func generateComplexCond(ctx context.Context, req *ExecuteSQLRequest, mode table.BotTableRWMode, fieldNameToPhysical map[string]string) (*rdb.ComplexCondition, error) {
+	var (
+		err            error
+		complexCond    *rdb.ComplexCondition
+		extraCondition *rdb.ComplexCondition
+	)
+	if req.Condition != nil {
+		complexCond, err = convertCondition(ctx, req.Condition, fieldNameToPhysical, req.SQLParams)
+		if err != nil {
+			return nil, fmt.Errorf("convert condition failed: %v", err)
+		}
+	}
+
+	if mode == table.BotTableRWMode_LimitedReadWrite && req.UserID != "" {
+		cond := &rdb.Condition{
+			Field:    database.DefaultUidColName,
+			Operator: entity3.OperatorEqual,
+			Value:    req.UserID,
+		}
+		extraCondition = &rdb.ComplexCondition{
+			Conditions: []*rdb.Condition{cond},
+		}
+	}
+
+	if complexCond != nil && extraCondition != nil {
+		return &rdb.ComplexCondition{
+			NestedConditions: []*rdb.ComplexCondition{
+				complexCond,
+				extraCondition,
+			},
+			Operator: entity3.AND,
+		}, nil
+
+	}
+
+	if complexCond != nil {
+		return complexCond, nil
+	}
+
+	if extraCondition != nil {
+		return extraCondition, nil
+	}
+
+	return nil, nil
+
+}
+
+var allowedTableNamePattern = regexp.MustCompile(`^table_\d+$`)
+
+
+func validateCustomSQL(sql string) error {
+	upperSQL := strings.ToUpper(sql)
+
+	if strings.Contains(upperSQL, "UNION") {
+		return fmt.Errorf("UNION queries are not allowed")
+	}
+
+	if strings.Contains(upperSQL, "JOIN") {
+		return fmt.Errorf("JOIN queries are not allowed")
+	}
+
+	dangerousTables := []string{"INFORMATION_SCHEMA", "MYSQL.", "PERFORMANCE_SCHEMA", "SYS."}
+	for _, t := range dangerousTables {
+		if strings.Contains(upperSQL, t) {
+			return fmt.Errorf("access to system tables is not allowed")
+		}
+	}
+
+	dangerousFuncs := []string{
+		"CURRENT_USER", "USER()", "SESSION_USER", "SYSTEM_USER",
+		"LOAD_FILE", "INTO OUTFILE", "INTO DUMPFILE",
+		"BENCHMARK(", "SLEEP(",
+	}
+	for _, f := range dangerousFuncs {
+		if strings.Contains(upperSQL, f) {
+			return fmt.Errorf("dangerous function %s is not allowed", f)
+		}
+	}
+
+	return nil
+}
+
+func validateParsedSQL(parsedSQL string) error {
+	tableNamePattern := regexp.MustCompile(`(?i)\b(FROM|JOIN|INTO|UPDATE)\s+` + "`?" + `(\w+)` + "`?")
+	matches := tableNamePattern.FindAllStringSubmatch(parsedSQL, -1)
+
+	for _, match := range matches {
+		if len(match) >= 3 {
+			tableName := match[2]
+			if tableName == "dual" || tableName == "DUAL" {
+				continue
+			}
+			if !allowedTableNamePattern.MatchString(tableName) {
+				return fmt.Errorf("invalid table name: %s, only table_<id> format is allowed", tableName)
+			}
+		}
+	}
+
+	return nil
 }

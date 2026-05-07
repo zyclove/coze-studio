@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { exhaustiveCheckSimple } from '@coze-common/chat-area-utils';
 
 import { type UIMode } from '../shortcut-bar/types';
 
 export const getUIModeByBizScene: (props: {
-  bizScene: 'debug' | 'store' | 'home' | 'agentApp';
+  bizScene: 'debug' | 'store' | 'home' | 'agentApp' | 'websdk';
   showBackground: boolean;
 }) => UIMode = ({ bizScene, showBackground }) => {
   if (bizScene === 'agentApp') {
@@ -32,7 +32,7 @@ export const getUIModeByBizScene: (props: {
     return 'white';
   }
 
-  if (bizScene === 'store' || bizScene === 'debug') {
+  if (bizScene === 'store' || bizScene === 'debug' || bizScene === 'websdk') {
     if (showBackground) {
       return 'blur';
     }

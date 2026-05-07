@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { SpaceSubModuleEnum } from '@coze-foundation/space-ui-adapter';
@@ -33,6 +33,7 @@ import {
   spaceSubMenu,
   exploreSubMenu,
   WorkflowPage,
+  SearchPage,
   ProjectIDE,
   ProjectIDEPublish,
   Library,
@@ -44,11 +45,12 @@ import {
   DatabaseDetail,
   ExplorePluginPage,
   ExploreTemplatePage,
+  OAuthConsentConfirmPage,
 } from './async-components';
 
 export const router: ReturnType<typeof createBrowserRouter> =
   createBrowserRouter([
-    // 文档路由
+    // Document routing
     {
       path: '/open/docs/*',
       Component: Redirect,
@@ -73,7 +75,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
         requireAuth: false,
       }),
     },
-    // 主应用路由
+    // main application route
     {
       path: '/',
       Component: Layout,
@@ -83,7 +85,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
           index: true,
           element: <Navigate to="/space" replace />,
         },
-        // 登录页路由
+        // login page routing
         {
           path: 'sign',
           Component: LoginPage,
@@ -94,7 +96,18 @@ export const router: ReturnType<typeof createBrowserRouter> =
           }),
         },
 
-        // 工作空间路由
+        // OAuth consent confirm page
+        {
+          path: 'oauth/confirm',
+          Component: OAuthConsentConfirmPage,
+          errorElement: <GlobalError />,
+          loader: () => ({
+            hasSider: false,
+            requireAuth: false,
+          }),
+        },
+
+        // Workspace Routing
         {
           path: 'space',
           Component: SpaceLayout,
@@ -114,7 +127,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   element: <Navigate to="develop" replace />,
                 },
 
-                // 项目开发
+                // Project Development
                 {
                   path: 'develop',
                   Component: Develop,
@@ -171,7 +184,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   }),
                 },
 
-                // 资源库
+                // resource library
                 {
                   path: 'library',
                   Component: Library,
@@ -180,7 +193,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   }),
                 },
 
-                // 知识库资源
+                // Knowledge Base Resources
                 {
                   path: 'knowledge',
                   children: [
@@ -198,7 +211,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   }),
                 },
 
-                // 数据库资源
+                // database resources
                 {
                   path: 'database',
                   children: [
@@ -213,7 +226,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   }),
                 },
 
-                // 插件资源
+                // plugin resources
                 {
                   path: 'plugin/:plugin_id',
                   Component: PluginLayout,
@@ -238,7 +251,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
           ],
         },
 
-        // 工作流路由
+        // workflow routing
         {
           path: 'work_flow',
           Component: WorkflowPage,
@@ -248,7 +261,17 @@ export const router: ReturnType<typeof createBrowserRouter> =
           }),
         },
 
-        // 探索
+        // search
+        {
+          path: 'search/:word',
+          Component: SearchPage,
+          loader: () => ({
+            hasSider: true,
+            requireAuth: true,
+          }),
+        },
+
+        // explore
         {
           path: 'explore',
           Component: null,
@@ -263,7 +286,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
               index: true,
               element: <Navigate to="plugin" replace />,
             },
-            // 插件商店
+            // plugin store
             {
               path: 'plugin',
               element: <ExplorePluginPage />,
@@ -271,7 +294,7 @@ export const router: ReturnType<typeof createBrowserRouter> =
                 type: 'plugin',
               }),
             },
-            // 模版
+            // template
             {
               path: 'template',
               element: <ExploreTemplatePage />,

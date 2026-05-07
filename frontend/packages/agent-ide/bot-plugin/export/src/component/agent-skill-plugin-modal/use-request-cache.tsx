@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type MutableRefObject, useEffect } from 'react';
 
-import { setCache, getCache, clearCache } from '@coze-arch/bot-utils';
 import { type InfiniteListDataProps } from '@coze-community/components';
+import { setCache, getCache, clearCache } from '@coze-arch/bot-utils';
 import {
   DEFAULT_PAGE_SIZE,
   MineActiveEnum,
@@ -48,6 +48,7 @@ export interface InfiniteScrollViewportOptions<
       isTemplate: boolean;
       isFavorite: boolean;
       isProject: boolean;
+      isCoze: boolean;
     },
   ) => Promise<RequestServiceResp<ListItem> | undefined>;
   // @ts-expect-error -- linter-disable-autofix
@@ -80,6 +81,7 @@ export function useInfiniteScrollCacheLoad<
   const isTeam = type === PluginFilterType.Team;
   const isFavorite = type === PluginFilterType.Favorite;
   const isProject = type === PluginFilterType.Project;
+  const isCoze = type === PluginFilterType.Coze;
 
   // team tools -> my creator
   const isCreatorMine = mineActive === MineActiveEnum.Mine;
@@ -152,6 +154,7 @@ export function useInfiniteScrollCacheLoad<
         isTemplate,
         isFavorite,
         isProject,
+        isCoze,
       });
       setCacheData(cachedKey, DEFAULT_CACHE_TIME, res);
     }
@@ -169,7 +172,7 @@ export function useInfiniteScrollCacheLoad<
       ] = true;
     });
 
-    //数据去重
+    //Data deduplicated
     const uniqList = (list || []).filter(item => {
       const pluginId = (item as unknown as { pluginInfo: { id: string } })
         ?.pluginInfo?.id;

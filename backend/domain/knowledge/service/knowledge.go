@@ -32,37 +32,30 @@ import (
 	"unicode/utf8"
 
 	"github.com/bytedance/sonic"
-	redisV9 "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
-	knowledgeModel "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/knowledge"
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/developer_api"
+	"github.com/coze-dev/coze-studio/backend/api/model/app/developer_api"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
-	"github.com/coze-dev/coze-studio/backend/domain/knowledge/repository"
-
+	knowledgeModel "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/consts"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/convert"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/dal/model"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/events"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/processor/impl"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/cache"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/chatmodel"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/nl2sql"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/ocr"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/parser"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/rerank"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/document/searchstore"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/eventbus"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/idgen"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/messages2query"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/rdb"
-	rdbEntity "github.com/coze-dev/coze-studio/backend/infra/contract/rdb/entity"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/document/parser/builtin"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/document/progressbar"
-	"github.com/coze-dev/coze-studio/backend/infra/impl/document/rerank/rrf"
+	"github.com/coze-dev/coze-studio/backend/domain/knowledge/repository"
+	"github.com/coze-dev/coze-studio/backend/infra/cache"
+	"github.com/coze-dev/coze-studio/backend/infra/document/messages2query"
+	"github.com/coze-dev/coze-studio/backend/infra/document/nl2sql"
+	"github.com/coze-dev/coze-studio/backend/infra/document/parser"
+	"github.com/coze-dev/coze-studio/backend/infra/document/progressbar"
+	"github.com/coze-dev/coze-studio/backend/infra/document/rerank"
+	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore"
+	"github.com/coze-dev/coze-studio/backend/infra/eventbus"
+	"github.com/coze-dev/coze-studio/backend/infra/idgen"
+	"github.com/coze-dev/coze-studio/backend/infra/rdb"
+	rdbEntity "github.com/coze-dev/coze-studio/backend/infra/rdb/entity"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
@@ -72,50 +65,39 @@ import (
 
 func NewKnowledgeSVC(config *KnowledgeSVCConfig) (Knowledge, eventbus.ConsumerHandler) {
 	svc := &knowledgeSVC{
-		knowledgeRepo:             repository.NewKnowledgeDAO(config.DB),
-		documentRepo:              repository.NewKnowledgeDocumentDAO(config.DB),
-		sliceRepo:                 repository.NewKnowledgeDocumentSliceDAO(config.DB),
-		reviewRepo:                repository.NewKnowledgeDocumentReviewDAO(config.DB),
-		idgen:                     config.IDGen,
-		rdb:                       config.RDB,
-		producer:                  config.Producer,
-		searchStoreManagers:       config.SearchStoreManagers,
-		parseManager:              config.ParseManager,
-		storage:                   config.Storage,
-		reranker:                  config.Reranker,
-		rewriter:                  config.Rewriter,
-		nl2Sql:                    config.NL2Sql,
-		enableCompactTable:        ptr.FromOrDefault(config.EnableCompactTable, true),
-		cacheCli:                  config.CacheCli,
-		isAutoAnnotationSupported: config.IsAutoAnnotationSupported,
-		modelFactory:              config.ModelFactory,
-	}
-	if svc.reranker == nil {
-		svc.reranker = rrf.NewRRFReranker(0)
-	}
-	if svc.parseManager == nil {
-		svc.parseManager = builtin.NewManager(config.Storage, config.OCR, nil)
+		knowledgeRepo:       repository.NewKnowledgeDAO(config.DB),
+		documentRepo:        repository.NewKnowledgeDocumentDAO(config.DB),
+		sliceRepo:           repository.NewKnowledgeDocumentSliceDAO(config.DB),
+		reviewRepo:          repository.NewKnowledgeDocumentReviewDAO(config.DB),
+		idgen:               config.IDGen,
+		rdb:                 config.RDB,
+		producer:            config.Producer,
+		searchStoreManagers: config.SearchStoreManagers,
+		parseManager:        config.ParseManager,
+		storage:             config.Storage,
+		reranker:            config.Reranker,
+		rewriter:            config.Rewriter,
+		nl2Sql:              config.NL2Sql,
+		enableCompactTable:  ptr.FromOrDefault(config.EnableCompactTable, true),
+		cacheCli:            config.CacheCli,
 	}
 
 	return svc, svc
 }
 
 type KnowledgeSVCConfig struct {
-	DB                        *gorm.DB                       // required
-	IDGen                     idgen.IDGenerator              // required
-	RDB                       rdb.RDB                        // required: 表格存储
-	Producer                  eventbus.Producer              // required: 文档 indexing 过程走 mq 异步处理
-	SearchStoreManagers       []searchstore.Manager          // required: 向量 / 全文
-	ParseManager              parser.Manager                 // optional: 文档切分与处理能力, default builtin parser
-	Storage                   storage.Storage                // required: oss
-	ModelFactory              chatmodel.Factory              // required: 模型 factory
-	Rewriter                  messages2query.MessagesToQuery // optional: 未配置时不改写
-	Reranker                  rerank.Reranker                // optional: 未配置时默认 rrf
-	NL2Sql                    nl2sql.NL2SQL                  // optional: 未配置时默认不支持
-	EnableCompactTable        *bool                          // optional: 表格数据压缩，默认 true
-	OCR                       ocr.OCR                        // optional: ocr, 未提供时 ocr 功能不可用
-	CacheCli                  cache.Cmdable                  // optional: 缓存实现
-	IsAutoAnnotationSupported bool                           // 是否支持了图片自动标注
+	DB                  *gorm.DB                       // required
+	IDGen               idgen.IDGenerator              // required
+	RDB                 rdb.RDB                        // Required: Form storage
+	Producer            eventbus.Producer              // Required: Document indexing process goes through mq asynchronous processing
+	SearchStoreManagers []searchstore.Manager          // Required: Vector/Full Text
+	ParseManager        parser.Manager                 // Optional: document segmentation and processing capability, default builtin parser
+	Storage             storage.Storage                // required: oss
+	Rewriter            messages2query.MessagesToQuery // Optional: Do not overwrite when not configured
+	Reranker            rerank.Reranker                // Optional: default rrf when not configured
+	NL2Sql              nl2sql.NL2SQL                  // Optional: Not supported by default when not configured
+	EnableCompactTable  *bool                          // Optional: Table data compression, default true
+	CacheCli            cache.Cmdable                  // Optional: cache implementation
 }
 
 type knowledgeSVC struct {
@@ -123,20 +105,18 @@ type knowledgeSVC struct {
 	documentRepo  repository.KnowledgeDocumentRepo
 	sliceRepo     repository.KnowledgeDocumentSliceRepo
 	reviewRepo    repository.KnowledgeDocumentReviewRepo
-	modelFactory  chatmodel.Factory
 
-	idgen                     idgen.IDGenerator
-	rdb                       rdb.RDB
-	producer                  eventbus.Producer
-	searchStoreManagers       []searchstore.Manager
-	parseManager              parser.Manager
-	rewriter                  messages2query.MessagesToQuery
-	reranker                  rerank.Reranker
-	storage                   storage.Storage
-	nl2Sql                    nl2sql.NL2SQL
-	cacheCli                  cache.Cmdable
-	enableCompactTable        bool // 表格数据压缩
-	isAutoAnnotationSupported bool // 是否支持了图片自动标注
+	idgen               idgen.IDGenerator
+	rdb                 rdb.RDB
+	producer            eventbus.Producer
+	searchStoreManagers []searchstore.Manager
+	parseManager        parser.Manager
+	rewriter            messages2query.MessagesToQuery
+	reranker            rerank.Reranker
+	storage             storage.Storage
+	nl2Sql              nl2sql.NL2SQL
+	cacheCli            cache.Cmdable
+	enableCompactTable  bool // Table data compression
 }
 
 func (k *knowledgeSVC) CreateKnowledge(ctx context.Context, request *CreateKnowledgeRequest) (response *CreateKnowledgeResponse, err error) {
@@ -163,7 +143,7 @@ func (k *knowledgeSVC) CreateKnowledge(ctx context.Context, request *CreateKnowl
 		SpaceID:     request.SpaceID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		Status:      int32(knowledgeModel.KnowledgeStatusEnable), // 目前向量库的初始化由文档触发，知识库无 init 过程
+		Status:      int32(knowledgeModel.KnowledgeStatusEnable), // At present, the initialization of the vector library is triggered by the document, and the knowledge base has no init process
 		Description: request.Description,
 		IconURI:     request.IconUri,
 		FormatType:  int32(request.FormatType),
@@ -217,7 +197,7 @@ func (k *knowledgeSVC) UpdateKnowledge(ctx context.Context, request *UpdateKnowl
 }
 
 func (k *knowledgeSVC) DeleteKnowledge(ctx context.Context, request *DeleteKnowledgeRequest) error {
-	// 先获取一下knowledge的信息
+	// Get some knowledge first
 	knModel, err := k.knowledgeRepo.GetByID(ctx, request.KnowledgeID)
 	if err != nil {
 		return errorx.New(errno.ErrKnowledgeDBCode, errorx.KV("msg", err.Error()))
@@ -320,7 +300,7 @@ func (k *knowledgeSVC) checkRequest(request *CreateDocumentRequest) error {
 	}
 	for i := range request.Documents {
 		if request.Documents[i].Type == knowledgeModel.DocumentTypeImage && ptr.From(request.Documents[i].ParsingStrategy.CaptionType) == parser.ImageAnnotationTypeModel {
-			if !k.isAutoAnnotationSupported {
+			if !k.parseManager.IsAutoAnnotationSupported() {
 				return errors.New("auto caption type is not supported")
 			}
 		}
@@ -357,27 +337,27 @@ func (k *knowledgeSVC) CreateDocument(ctx context.Context, request *CreateDocume
 		Storage:        k.storage,
 		Rdb:            k.rdb,
 	})
-	// 1. 前置的动作，上传 tos 等
+	// 1. Front action, upload tos, etc
 	err = docProcessor.BeforeCreate()
 	if err != nil {
 		return nil, err
 	}
-	// 2. 构建 落库
+	// 2. Build, drop library
 	err = docProcessor.BuildDBModel()
 	if err != nil {
 		return nil, err
 	}
-	// 3. 插入数据库
+	// 3. Insert into the database
 	err = docProcessor.InsertDBModel()
 	if err != nil {
 		return nil, err
 	}
-	// 4. 发起索引任务
+	// 4. Initiate the indexing task
 	err = docProcessor.Indexing()
 	if err != nil {
 		return nil, err
 	}
-	// 5. 返回处理后的文档信息
+	// 5. Return the processed document information
 	docs := docProcessor.GetResp()
 	return &CreateDocumentResponse{
 		Documents: docs,
@@ -397,7 +377,7 @@ func (k *knowledgeSVC) UpdateDocument(ctx context.Context, request *UpdateDocume
 	}
 
 	if doc.DocumentType == int32(knowledgeModel.DocumentTypeTable) {
-		// 如果是表格类型，可能是要改table的meta
+		// If it is a table type, it may be necessary to change the meta of the table.
 		if doc.TableInfo != nil {
 			finalColumns, err := k.alterTableSchema(ctx, doc.TableInfo.Columns, request.TableInfo.Columns, doc.TableInfo.PhysicalTableName)
 			if err != nil {
@@ -446,14 +426,14 @@ func (k *knowledgeSVC) DeleteDocument(ctx context.Context, request *DeleteDocume
 		}
 	}
 
-	err = k.documentRepo.DeleteDocuments(ctx, []int64{request.DocumentID})
-	if err != nil {
-		return errorx.New(errno.ErrKnowledgeDBCode, errorx.KV("msg", err.Error()))
-	}
-
 	sliceIDs, err := k.sliceRepo.GetDocumentSliceIDs(ctx, []int64{request.DocumentID})
 	if err != nil {
 		logs.CtxErrorf(ctx, "[DeleteDocument] get document slice ids failed, err: %v", err)
+		return errorx.New(errno.ErrKnowledgeDBCode, errorx.KV("msg", err.Error()))
+	}
+
+	err = k.documentRepo.DeleteDocuments(ctx, []int64{request.DocumentID})
+	if err != nil {
 		return errorx.New(errno.ErrKnowledgeDBCode, errorx.KV("msg", err.Error()))
 	}
 
@@ -485,6 +465,9 @@ func (k *knowledgeSVC) ListDocument(ctx context.Context, request *ListDocumentRe
 	}
 	if request.KnowledgeID != 0 {
 		opts.KnowledgeIDs = []int64{request.KnowledgeID}
+	}
+	if request.Keyword != nil {
+		opts.Name = request.Keyword
 	}
 	if request.SelectAll {
 		opts.SelectAll = true
@@ -535,7 +518,7 @@ func (k *knowledgeSVC) MGetDocumentProgress(ctx context.Context, request *MGetDo
 			Status:        entity.DocumentStatus(documents[i].Status),
 			StatusMsg:     entity.DocumentStatus(documents[i].Status).String(),
 		}
-		if documents[i].DocumentType == int32(knowledge.DocumentTypeImage) && len(documents[i].URI) != 0 {
+		if documents[i].DocumentType == int32(knowledgeModel.DocumentTypeImage) && len(documents[i].URI) != 0 {
 			item.URL, err = k.storage.GetObjectUrl(ctx, documents[i].URI)
 			if err != nil {
 				logs.CtxErrorf(ctx, "get object url failed, err: %v", err)
@@ -545,6 +528,12 @@ func (k *knowledgeSVC) MGetDocumentProgress(ctx context.Context, request *MGetDo
 		if documents[i].Status == int32(entity.DocumentStatusEnable) || documents[i].Status == int32(entity.DocumentStatusFailed) {
 			item.Progress = progressbar.ProcessDone
 		} else {
+			if documents[i].FailReason != "" {
+				item.StatusMsg = documents[i].FailReason
+				item.Status = entity.DocumentStatusFailed
+				progresslist = append(progresslist, &item)
+				continue
+			}
 			err = k.getProgressFromCache(ctx, &item)
 			if err != nil {
 				logs.CtxErrorf(ctx, "get progress from cache failed, err: %v", err)
@@ -559,13 +548,14 @@ func (k *knowledgeSVC) MGetDocumentProgress(ctx context.Context, request *MGetDo
 }
 
 func (k *knowledgeSVC) getProgressFromCache(ctx context.Context, documentProgress *DocumentProgress) (err error) {
-	progressBar := progressbar.NewProgressBar(ctx, documentProgress.ID, 0, k.cacheCli, false)
+	progressBar := progressbar.New(ctx, documentProgress.ID, 0, k.cacheCli, false)
 	percent, remainSec, errMsg := progressBar.GetProgress(ctx)
 	documentProgress.Progress = int(percent)
 	documentProgress.RemainingSec = int64(remainSec)
 	if len(errMsg) != 0 {
-		documentProgress.Progress = 0
-		documentProgress.Status = entity.DocumentStatusChunking
+		documentProgress.Status = entity.DocumentStatusFailed
+		documentProgress.StatusMsg = errMsg
+		return err
 	}
 	return err
 }
@@ -666,7 +656,7 @@ func (k *knowledgeSVC) CreateSlice(ctx context.Context, request *CreateSliceRequ
 	}
 	if len(slices) == 1 {
 		if request.Position == 1 || request.Position == 0 {
-			// 插入到最前面
+			// Insert to the front
 			sliceInfo.Sequence = slices[0].Sequence - 1
 		} else {
 			sliceInfo.Sequence = slices[0].Sequence + 1
@@ -752,7 +742,7 @@ func (k *knowledgeSVC) UpdateSlice(ctx context.Context, request *UpdateSliceRequ
 	if docInfo == nil || docInfo.ID == 0 {
 		return errorx.New(errno.ErrKnowledgeDocumentNotExistCode)
 	}
-	// 更新数据库中的存储
+	// Update storage in the database
 	if docInfo.DocumentType == int32(knowledgeModel.DocumentTypeText) ||
 		docInfo.DocumentType == int32(knowledgeModel.DocumentTypeTable) {
 		sliceEntity := entity.Slice{RawContent: request.RawContent}
@@ -844,7 +834,7 @@ func (k *knowledgeSVC) DeleteSlice(ctx context.Context, request *DeleteSliceRequ
 			return errorx.New(errno.ErrKnowledgeCrossDomainCode, errorx.KV("msg", err.Error()))
 		}
 	}
-	// 删除数据库中的存储
+	// Delete storage in the database
 	err = k.sliceRepo.Delete(ctx, &model.KnowledgeDocumentSlice{ID: request.SliceID})
 	if err != nil {
 		logs.CtxErrorf(ctx, "delete slice failed, err: %v", err)
@@ -882,9 +872,8 @@ func (k *knowledgeSVC) ListSlice(ctx context.Context, request *ListSliceRequest)
 		KnowledgeID: ptr.From(request.KnowledgeID),
 		DocumentID:  ptr.From(request.DocumentID),
 		Keyword:     request.Keyword,
-		Sequence:    request.Sequence,
+		Offset:      request.Sequence,
 		PageSize:    request.Limit,
-		Offset:      request.Offset,
 	})
 	if err != nil {
 		logs.CtxErrorf(ctx, "list slice failed, err: %v", err)
@@ -898,9 +887,9 @@ func (k *knowledgeSVC) ListSlice(ctx context.Context, request *ListSliceRequest)
 	}
 	resp.Total = int(total)
 	var sliceMap map[int64]*entity.Slice
-	// 如果是表格类型，那么去table中取一下原始数据
+	// If it is a table type, then go to the table to get the original data source
 	if doc.DocumentType == int32(knowledgeModel.DocumentTypeTable) {
-		// 从数据库中查询原始数据
+		// Query original data source from database
 		sliceMap, err = k.selectTableData(ctx, doc.TableInfo, slices)
 		if err != nil {
 			logs.CtxErrorf(ctx, "select table data failed, err: %v", err)
@@ -1003,7 +992,7 @@ func (k *knowledgeSVC) CreateDocumentReview(ctx context.Context, request *Create
 		}
 		reviews = append(reviews, review)
 	}
-	// STEP 1. 生成ID
+	// STEP 1. Generate ID
 	reviewIDs, err := k.genMultiIDs(ctx, len(request.Reviews))
 	if err != nil {
 		return nil, errorx.New(errno.ErrKnowledgeIDGenCode)
@@ -1276,6 +1265,16 @@ func (k *knowledgeSVC) fromModelDocument(ctx context.Context, document *model.Kn
 			documentEntity.TableInfo.Columns = append(documentEntity.TableInfo.Columns, document.TableInfo.Columns[i])
 		}
 	}
+	switch document.Status {
+	case int32(entity.DocumentStatusChunking), int32(entity.DocumentStatusInit), int32(entity.DocumentStatusUploading):
+		if document.FailReason != "" {
+			documentEntity.Status = entity.DocumentStatusFailed
+			documentEntity.StatusMsg = document.FailReason
+		}
+	case int32(entity.DocumentStatusFailed):
+		documentEntity.StatusMsg = document.FailReason
+	default:
+	}
 	if len(document.URI) != 0 {
 		objUrl, err := k.storage.GetObjectUrl(ctx, document.URI)
 		if err != nil {
@@ -1371,12 +1370,12 @@ func (k *knowledgeSVC) ListPhotoSlice(ctx context.Context, request *ListPhotoSli
 	if request == nil {
 		return nil, errorx.New(errno.ErrKnowledgeInvalidParamCode, errorx.KV("msg", "request is empty"))
 	}
-	sliceArr, total, err := k.sliceRepo.FindSliceByCondition(ctx, &entity.WhereSliceOpt{
+	sliceArr, total, err := k.sliceRepo.ListPhotoSlice(ctx, &entity.WherePhotoSliceOpt{
 		KnowledgeID: request.KnowledgeID,
 		DocumentIDs: request.DocumentIDs,
-		Offset:      int64(ptr.From(request.Offset)),
-		PageSize:    int64(ptr.From(request.Limit)),
-		NotEmpty:    request.HasCaption,
+		Offset:      request.Offset,
+		Limit:       request.Limit,
+		HasCaption:  request.HasCaption,
 	})
 	if err != nil {
 		return nil, errorx.New(errno.ErrKnowledgeDBCode, errorx.KV("msg", err.Error()))
@@ -1396,7 +1395,7 @@ func (k *knowledgeSVC) ExtractPhotoCaption(ctx context.Context, request *Extract
 	if request == nil {
 		return nil, errorx.New(errno.ErrKnowledgeInvalidParamCode, errorx.KV("msg", "request is empty"))
 	}
-	if !k.isAutoAnnotationSupported {
+	if !k.parseManager.IsAutoAnnotationSupported() {
 		return nil, errorx.New(errno.ErrKnowledgeAutoAnnotationNotSupportedCode, errorx.KV("msg", "auto annotation is not supported"))
 	}
 	docInfo, err := k.documentRepo.GetByID(ctx, request.DocumentID)
@@ -1467,7 +1466,7 @@ func (k *knowledgeSVC) getObjectURL(ctx context.Context, uri string) (string, er
 		if err != nil {
 			return "", errorx.New(errno.ErrKnowledgeGetObjectURLFailCode, errorx.KV("msg", fmt.Sprintf("get object url failed, %v", err)))
 		}
-		if errors.Is(cmd.Err(), redisV9.Nil) {
+		if errors.Is(cmd.Err(), cache.Nil) {
 			err = k.cacheCli.Set(ctx, uri, url, cacheTime*time.Second).Err()
 			if err != nil {
 				logs.CtxErrorf(ctx, "[getObjectURL] set cache failed, %v", err)
@@ -1482,14 +1481,70 @@ func (k *knowledgeSVC) getObjectURL(ctx context.Context, uri string) (string, er
 
 func (k *knowledgeSVC) genMultiIDs(ctx context.Context, counts int) ([]int64, error) {
 	allIDs := make([]int64, 0)
+	retryInterval := 5 * time.Millisecond
 	for l := 0; l < counts; l += 100 {
 		r := min(l+100, counts)
 		batchSize := r - l
-		ids, err := k.idgen.GenMultiIDs(ctx, batchSize)
-		if err != nil {
-			return nil, errorx.New(errno.ErrKnowledgeIDGenCode, errorx.KV("msg", fmt.Sprintf("GenMultiIDs failed, err: %v", err)))
+		var ids []int64
+		var err error
+		maxRetries := 5
+		retryCount := 0
+		for {
+			ids, err = k.idgen.GenMultiIDs(ctx, batchSize)
+			if err != nil {
+				if retryCount >= maxRetries {
+					return nil, errorx.New(errno.ErrKnowledgeIDGenCode, errorx.KV("msg", fmt.Sprintf("GenMultiIDs failed, err: %v", err)))
+				}
+				logs.CtxErrorf(ctx, "[genMultiIDs] GenMultiIDs failed, retry %d/%d: %v", retryCount+1, maxRetries, err)
+				time.Sleep(retryInterval)
+				retryCount++
+				continue
+			}
+			break
 		}
 		allIDs = append(allIDs, ids...)
 	}
 	return allIDs, nil
+}
+
+func (k *knowledgeSVC) MGetSlice(ctx context.Context, request *MGetSliceRequest) (response *MGetSliceResponse, err error) {
+	slices, err := k.sliceRepo.MGetSlices(ctx, request.SliceIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*entity.Slice
+	for _, slice := range slices {
+		if slice != nil {
+			result = append(result, k.fromModelSlice(ctx, slice))
+		}
+	}
+
+	return &MGetSliceResponse{
+		Slices: result,
+	}, nil
+}
+
+func (k *knowledgeSVC) MGetDocument(ctx context.Context, request *MGetDocumentRequest) (response *MGetDocumentResponse, err error) {
+	documents, err := k.documentRepo.MGetByID(ctx, request.DocumentIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*entity.Document
+	for _, doc := range documents {
+		if doc != nil {
+			docEntity, err := k.fromModelDocument(ctx, doc)
+			if err != nil {
+				return nil, err
+			}
+			if docEntity != nil {
+				result = append(result, docEntity)
+			}
+		}
+	}
+
+	return &MGetDocumentResponse{
+		Documents: result,
+	}, nil
 }

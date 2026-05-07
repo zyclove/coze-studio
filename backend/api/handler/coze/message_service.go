@@ -140,7 +140,27 @@ func GetApiMessageList(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp, err := application.OpenapiMessageApplicationService.GetApiMessageList(ctx, &req)
+	resp, err := application.OpenapiMessageSVC.GetApiMessageList(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// ListChatMessageApi .
+// @router /v3/chat/message/list [GET]
+func ListChatMessageApi(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req message.ListChatMessageApiRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := application.ConversationOpenAPISVC.ListChatMessageApi(ctx, &req)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { pick } from 'lodash-es';
 import { type ApiNodeDetailDTO } from '@coze-workflow/nodes';
 
@@ -32,5 +32,6 @@ export const extractApiNodeData = (
     'inputs',
     'outputs',
     'updateTime',
+    'plugin_from',
   ]),
 });

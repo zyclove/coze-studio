@@ -19,20 +19,22 @@ package agentflow
 import (
 	"context"
 	"errors"
-	"slices"
+	"io"
 
 	"github.com/google/uuid"
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/crossdomain/agentrun"
-	"github.com/coze-dev/coze-studio/backend/api/model/crossdomain/singleagent"
-	"github.com/coze-dev/coze-studio/backend/crossdomain/contract/crossworkflow"
+	"github.com/coze-dev/coze-studio/backend/bizpkg/config/modelmgr"
+	singleagent "github.com/coze-dev/coze-studio/backend/crossdomain/agent/model"
+	agentrun "github.com/coze-dev/coze-studio/backend/crossdomain/agentrun/model"
+	crossworkflow "github.com/coze-dev/coze-studio/backend/crossdomain/workflow"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/entity"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/modelmgr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/conv"
 	"github.com/coze-dev/coze-studio/backend/pkg/logs"
+	"github.com/coze-dev/coze-studio/backend/pkg/safego"
+	"github.com/coze-dev/coze-studio/backend/pkg/urltobase64url"
 )
 
 type AgentState struct {
@@ -57,8 +59,9 @@ type AgentRunner struct {
 	runner            compose.Runnable[*AgentRequest, *schema.Message]
 	requireCheckpoint bool
 
-	containWfTool bool
-	modelInfo     *modelmgr.Model
+	returnDirectlyTools map[string]struct{}
+	containWfTool       bool
+	modelInfo           *modelmgr.Model
 }
 
 func (r *AgentRunner) StreamExecute(ctx context.Context, req *AgentRequest) (
@@ -66,54 +69,114 @@ func (r *AgentRunner) StreamExecute(ctx context.Context, req *AgentRequest) (
 ) {
 	executeID := uuid.New()
 
-	hdl, sr, sw := newReplyCallback(ctx, executeID.String())
+	hdl, sr, sw := newReplyCallback(ctx, executeID.String(), r.returnDirectlyTools)
 
-	go func() {
+	var composeOpts []compose.Option
+	var pipeMsgOpt compose.Option
+	var workflowMsgSr *schema.StreamReader[*crossworkflow.WorkflowMessage]
+	var workflowMsgCloser func()
+	if r.containWfTool {
+		cfReq := crossworkflow.ExecuteConfig{
+			AgentID:      &req.Identity.AgentID,
+			ConnectorUID: req.UserID,
+			ConnectorID:  req.Identity.ConnectorID,
+			BizType:      crossworkflow.BizTypeAgent,
+		}
+		if req.Identity.IsDraft {
+			cfReq.Mode = crossworkflow.ExecuteModeDebug
+		} else {
+			cfReq.Mode = crossworkflow.ExecuteModeRelease
+		}
+		wfConfig := crossworkflow.DefaultSVC().WithExecuteConfig(cfReq)
+		composeOpts = append(composeOpts, wfConfig)
+		pipeMsgOpt, workflowMsgSr, workflowMsgCloser = crossworkflow.DefaultSVC().WithMessagePipe()
+		composeOpts = append(composeOpts, pipeMsgOpt)
+	}
+
+	composeOpts = append(composeOpts, compose.WithCallbacks(hdl))
+	_ = compose.RegisterSerializableType[*AgentState]("agent_state")
+	if r.requireCheckpoint {
+
+		defaultCheckPointID := executeID.String()
+		if req.ResumeInfo != nil {
+			resumeInfo := req.ResumeInfo
+			if resumeInfo.InterruptType != singleagent.InterruptEventType_OauthPlugin {
+				defaultCheckPointID = resumeInfo.InterruptID
+				opts := crossworkflow.DefaultSVC().WithResumeToolWorkflow(resumeInfo.AllWfInterruptData[resumeInfo.ToolCallID], req.Input.Content, resumeInfo.AllWfInterruptData)
+				composeOpts = append(composeOpts, opts)
+			}
+		}
+
+		composeOpts = append(composeOpts, compose.WithCheckPointID(defaultCheckPointID))
+	}
+	if r.containWfTool && workflowMsgSr != nil {
+		safego.Go(ctx, func() {
+			r.processWfMidAnswerStream(ctx, sw, workflowMsgSr)
+		})
+	}
+	safego.Go(ctx, func() {
 		defer func() {
 			if pe := recover(); pe != nil {
 				logs.CtxErrorf(ctx, "[AgentRunner] StreamExecute recover, err: %v", pe)
 
 				sw.Send(nil, errors.New("internal server error"))
 			}
+			if workflowMsgCloser != nil {
+				workflowMsgCloser()
+			}
 			sw.Close()
 		}()
-
-		var composeOpts []compose.Option
-		composeOpts = append(composeOpts, compose.WithCallbacks(hdl))
-		_ = compose.RegisterSerializableType[*AgentState]("agent_state")
-		if r.requireCheckpoint {
-
-			defaultCheckPointID := executeID.String()
-			if req.ResumeInfo != nil {
-				resumeInfo := req.ResumeInfo
-				if resumeInfo.InterruptType != singleagent.InterruptEventType_OauthPlugin {
-					defaultCheckPointID = resumeInfo.InterruptID
-					opts := crossworkflow.DefaultSVC().WithResumeToolWorkflow(resumeInfo.AllWfInterruptData[resumeInfo.ToolCallID], req.Input.Content, resumeInfo.AllWfInterruptData)
-					composeOpts = append(composeOpts, opts)
-				}
-			}
-
-			composeOpts = append(composeOpts, compose.WithCheckPointID(defaultCheckPointID))
-		}
-		if r.containWfTool {
-			cfReq := crossworkflow.ExecuteConfig{
-				AgentID:      &req.Identity.AgentID,
-				ConnectorUID: req.UserID,
-				ConnectorID:  req.Identity.ConnectorID,
-				BizType:      crossworkflow.BizTypeAgent,
-			}
-			if req.Identity.IsDraft {
-				cfReq.Mode = crossworkflow.ExecuteModeDebug
-			} else {
-				cfReq.Mode = crossworkflow.ExecuteModeRelease
-			}
-			wfConfig := crossworkflow.DefaultSVC().WithExecuteConfig(cfReq)
-			composeOpts = append(composeOpts, wfConfig)
-		}
 		_, _ = r.runner.Stream(ctx, req, composeOpts...)
-	}()
+	})
 
 	return sr, nil
+}
+
+func (r *AgentRunner) processWfMidAnswerStream(_ context.Context, sw *schema.StreamWriter[*entity.AgentEvent], wfStream *schema.StreamReader[*crossworkflow.WorkflowMessage]) {
+	streamInitialized := false
+	var srT *schema.StreamReader[*schema.Message]
+	var swT *schema.StreamWriter[*schema.Message]
+	defer func() {
+		if swT != nil {
+			swT.Close()
+		}
+		wfStream.Close()
+	}()
+	for {
+		msg, err := wfStream.Recv()
+
+		if err == io.EOF {
+			break
+		}
+		if msg == nil || msg.DataMessage == nil {
+			continue
+		}
+
+		if msg.DataMessage.NodeType != crossworkflow.NodeTypeOutputEmitter {
+			continue
+		}
+		if !streamInitialized {
+			streamInitialized = true
+			srT, swT = schema.Pipe[*schema.Message](5)
+			sw.Send(&entity.AgentEvent{
+				EventType:     singleagent.EventTypeOfToolMidAnswer,
+				ToolMidAnswer: srT,
+			}, nil)
+		}
+		swT.Send(&schema.Message{
+			Role:    msg.DataMessage.Role,
+			Content: msg.DataMessage.Content,
+			Extra: func(msg *crossworkflow.WorkflowMessage) map[string]any {
+
+				extra := make(map[string]any)
+				extra["workflow_node_name"] = msg.NodeTitle
+				if msg.DataMessage.Last {
+					extra["is_finish"] = true
+				}
+				return extra
+			}(msg),
+		}, nil)
+	}
 }
 
 func (r *AgentRunner) PreHandlerReq(ctx context.Context, req *AgentRequest) *AgentRequest {
@@ -139,24 +202,28 @@ func (r *AgentRunner) preHandlerInput(input *schema.Message) *schema.Message {
 			if !r.isSupportImage() {
 				unSupportMultiPart = append(unSupportMultiPart, v)
 			} else {
+				v.ImageURL = transImageURLToBase64(v.ImageURL, r.enableLocalFileToLLMWithBase64())
 				multiContent = append(multiContent, v)
 			}
 		case schema.ChatMessagePartTypeFileURL:
 			if !r.isSupportFile() {
 				unSupportMultiPart = append(unSupportMultiPart, v)
 			} else {
+				v.FileURL = transFileURLToBase64(v.FileURL, r.enableLocalFileToLLMWithBase64())
 				multiContent = append(multiContent, v)
 			}
 		case schema.ChatMessagePartTypeAudioURL:
 			if !r.isSupportAudio() {
 				unSupportMultiPart = append(unSupportMultiPart, v)
 			} else {
+				v.AudioURL = transAudioURLToBase64(v.AudioURL, r.enableLocalFileToLLMWithBase64())
 				multiContent = append(multiContent, v)
 			}
 		case schema.ChatMessagePartTypeVideoURL:
 			if !r.isSupportVideo() {
 				unSupportMultiPart = append(unSupportMultiPart, v)
 			} else {
+				v.VideoURL = transVideoURLToBase64(v.VideoURL, r.enableLocalFileToLLMWithBase64())
 				multiContent = append(multiContent, v)
 			}
 		case schema.ChatMessagePartTypeText:
@@ -217,17 +284,76 @@ func (r *AgentRunner) preHandlerHistory(history []*schema.Message) []*schema.Mes
 }
 
 func (r *AgentRunner) isSupportMultiContent() bool {
-	return len(r.modelInfo.Meta.Capability.InputModal) > 1
+	return r.modelInfo.Capability.GetSupportMultiModal()
 }
 func (r *AgentRunner) isSupportImage() bool {
-	return slices.Contains(r.modelInfo.Meta.Capability.InputModal, modelmgr.ModalImage)
+	return r.modelInfo.Capability.GetImageUnderstanding()
 }
 func (r *AgentRunner) isSupportFile() bool {
-	return slices.Contains(r.modelInfo.Meta.Capability.InputModal, modelmgr.ModalFile)
+	return false
 }
 func (r *AgentRunner) isSupportAudio() bool {
-	return slices.Contains(r.modelInfo.Meta.Capability.InputModal, modelmgr.ModalAudio)
+	return r.modelInfo.Capability.GetAudioUnderstanding()
 }
 func (r *AgentRunner) isSupportVideo() bool {
-	return slices.Contains(r.modelInfo.Meta.Capability.InputModal, modelmgr.ModalVideo)
+	return r.modelInfo.Capability.GetVideoUnderstanding()
+}
+
+func (r *AgentRunner) enableLocalFileToLLMWithBase64() bool {
+	return r.modelInfo.EnableBase64URL
+}
+
+func transImageURLToBase64(imageUrl *schema.ChatMessageImageURL, enableBase64Url bool) *schema.ChatMessageImageURL {
+	if !enableBase64Url {
+		return imageUrl
+	}
+	fileData, err := urltobase64url.URLToBase64(imageUrl.URL)
+	if err != nil {
+		return imageUrl
+	}
+	imageUrl.URL = fileData.Base64Url
+	imageUrl.MIMEType = fileData.MimeType
+	return imageUrl
+}
+
+func transFileURLToBase64(fileUrl *schema.ChatMessageFileURL, enableBase64Url bool) *schema.ChatMessageFileURL {
+
+	if !enableBase64Url {
+		return fileUrl
+	}
+	fileData, err := urltobase64url.URLToBase64(fileUrl.URL)
+	if err != nil {
+		return fileUrl
+	}
+	fileUrl.URL = fileData.Base64Url
+	fileUrl.MIMEType = fileData.MimeType
+	return fileUrl
+}
+
+func transAudioURLToBase64(audioUrl *schema.ChatMessageAudioURL, enableBase64Url bool) *schema.ChatMessageAudioURL {
+
+	if !enableBase64Url {
+		return audioUrl
+	}
+	fileData, err := urltobase64url.URLToBase64(audioUrl.URL)
+	if err != nil {
+		return audioUrl
+	}
+	audioUrl.URL = fileData.Base64Url
+	audioUrl.MIMEType = fileData.MimeType
+	return audioUrl
+}
+
+func transVideoURLToBase64(videoUrl *schema.ChatMessageVideoURL, enableBase64Url bool) *schema.ChatMessageVideoURL {
+
+	if !enableBase64Url {
+		return videoUrl
+	}
+	fileData, err := urltobase64url.URLToBase64(videoUrl.URL)
+	if err != nil {
+		return videoUrl
+	}
+	videoUrl.URL = fileData.Base64Url
+	videoUrl.MIMEType = fileData.MimeType
+	return videoUrl
 }

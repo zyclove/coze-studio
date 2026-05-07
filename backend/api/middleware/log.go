@@ -30,6 +30,7 @@ import (
 
 	"github.com/coze-dev/coze-studio/backend/pkg/i18n"
 	"github.com/coze-dev/coze-studio/backend/pkg/logs"
+	"github.com/coze-dev/coze-studio/backend/types/consts"
 )
 
 func AccessLogMW() app.HandlerFunc {
@@ -50,7 +51,7 @@ func AccessLogMW() app.HandlerFunc {
 		}
 
 		requestType := ctx.GetInt32(RequestAuthTypeStr)
-		baseLog := fmt.Sprintf("| %s | %s | %d | %v | %s | %s | %v | %s | %d ｜ %s",
+		baseLog := fmt.Sprintf("| %s | %s | %d | %v | %s | %s | %v | %s | %d | %s",
 			string(ctx.GetRequest().Scheme()), ctx.Host(), status,
 			latency, clientIP, method, path, handleName, requestType, i18n.GetLocale(c))
 
@@ -84,7 +85,7 @@ func AccessLogMW() app.HandlerFunc {
 func SetLogIDMW() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		logID := uuid.New().String()
-		ctx = context.WithValue(ctx, "log-id", logID)
+		ctx = context.WithValue(ctx, consts.CtxLogIDKey, logID)
 
 		c.Header("X-Log-ID", logID)
 		c.Next(ctx)

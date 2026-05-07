@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   useRef,
@@ -41,11 +41,12 @@ export const EditorFullInputInner = forwardRef<EditorHandle, EditorInputProps>(
       ...restProps
     } = props;
     const [value, setValue] = useState(propsValue);
+    const [isComposing, setIsComposing] = useState(false);
 
-    // 创建一个可变引用以存储最新的value值
+    // Create a mutable reference to store the latest value
     const valueRef = useRef(value);
 
-    // 当value更新时，同步更新valueRef
+    // When value is updated, synchronously update valueRef
     useEffect(() => {
       valueRef.current = value;
     }, [value]);
@@ -104,7 +105,15 @@ export const EditorFullInputInner = forwardRef<EditorHandle, EditorInputProps>(
         value={value}
         onChange={v => {
           setValue(v);
+          if (isComposing) {
+            return;
+          }
           propsOnChange?.(v);
+        }}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={e => {
+          setIsComposing(false);
+          propsOnChange?.(e.currentTarget.value);
         }}
       />
     );

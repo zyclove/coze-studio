@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type ComponentType } from 'react';
 
+import { type MessageGroup } from '../../../store/types';
 import { type MessageBoxProps } from '../../../components/types';
 import {
   type CustomSendMessageBox,
@@ -44,6 +45,8 @@ export interface CustomComponent {
   MessageBox: ComponentType<MessageBoxProps>;
   MessageBoxFooter: CustomMessageBoxFooter;
   MessageBoxHoverSlot: ComponentType;
+  MessageGroupFooter: ComponentType<{ messageGroup: MessageGroup }>;
+
   UIKitMessageBoxPlugin: ComponentType<CustomUiKitMessageBoxProps>;
   UIKitOnBoardingPlugin: ComponentType;
 }

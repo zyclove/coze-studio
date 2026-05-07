@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import cls from 'classnames';
 import { Switch, withField, type SwitchProps } from '@coze-arch/coze-design';
 
@@ -45,4 +45,6 @@ function SwitchWithDesc({
   );
 }
 
-export const FormSwitch = withField(SwitchWithDesc);
+export const FormSwitch = withField(SwitchWithDesc) as ReturnType<
+  typeof withField
+>;

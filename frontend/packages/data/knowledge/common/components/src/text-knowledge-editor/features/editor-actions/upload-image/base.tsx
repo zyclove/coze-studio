@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import React from 'react';
 
 import { type Editor } from '@tiptap/react';
@@ -37,7 +37,7 @@ export const BaseUploadImage = ({
   showTooltip,
   renderUI,
 }: BaseUploadImageProps) => {
-  // 处理图片上传
+  // Handle image upload
   const handleImageUpload = (object: customRequestArgs) => {
     if (!editor) {
       return;
@@ -53,8 +53,15 @@ export const BaseUploadImage = ({
       options: {
         onFinish: (result: { url?: string; tosKey?: string }) => {
           if (result.url && editor) {
-            // 插入图片到编辑器
-            editor.chain().focus().setImage({ src: result.url }).run();
+            // Insert pictures into the editor and set the tosKey
+            editor
+              .chain()
+              .focus()
+              .setImageWithTosKey({
+                src: result.url,
+                dataTosKey: result.tosKey ?? null,
+              })
+              .run();
           }
         },
       },

@@ -13,9 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type MouseEvent } from 'react';
 
+import {
+  type IEventCallbacks,
+  type IOnLinkClickParams,
+} from '@coze-common/chat-uikit-shared';
 import { type MessageBoxTheme } from '@coze-common/chat-uikit';
 import {
   type ClearMessageContextParams,
@@ -25,7 +29,6 @@ import {
   type ChatCoreError,
   type GetHistoryMessageResponse,
 } from '@coze-common/chat-core';
-import { type IOnLinkClickParams } from '@coze-common/chat-uikit-shared';
 
 import {
   type Message as BuiltInMessage,
@@ -49,19 +52,19 @@ export interface MessageCallbackParams {
 export type SendMessageCallback = (
   params: MessageCallbackParams,
   from: SendMessageFrom,
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- 为什么上层在使用的时候被推断为 void
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- why is the upper layer inferred as void when used
 ) => MessageCallbackParams | void;
 
 export type SendMessageFailedCallback = (
   params: MessageCallbackParams,
   from: SendMessageFrom,
   error: unknown,
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- 为什么上层在使用的时候被推断为 void
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- why is the upper layer inferred as void when used
 ) => MessageCallbackParams | void;
 
 export type MessageCallback = (
   params: MessageCallbackParams,
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- 为什么上层在使用的时候被推断为 void
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- why is the upper layer inferred as void when used
 ) => MessageCallbackParams | void;
 
 export interface SelectionChangeParams {
@@ -85,15 +88,15 @@ export type OnboardingSelectChangeCallback = (
   isAlreadyHasSelect: boolean,
 ) => void;
 /**
- * 由 ChatArea 向外部发送的事件
- * 外部响应
+ * Events sent externally by ChatArea
+ * external response
  */
 export interface ChatAreaLifeCycleEventMap {
   onInitSuccess: () => void;
   onInitError: () => void;
   onDestroy: () => void;
   /**
-   * @param params 被 freeze
+   * @param params frozen
    */
   onBeforeMessageSend: SendMessageCallback;
   onMessageSendFail: SendMessageFailedCallback;
@@ -119,7 +122,7 @@ export interface ChatAreaLifeCycleEventMap {
   }) => void;
   onAfterStopResponding: OnAfterStopRespondingCallback;
   /**
-   * @deprecated 临时使用，后面考虑切换实现
+   * @Deprecated temporary use, consider switching implementation later
    */
   onParseReceiveMessageBoxTheme?: OnParseReceiveMessageBoxTheme;
 }
@@ -150,6 +153,7 @@ export interface ChatAreaMessageEventMap {
     event: MouseEvent<Element, globalThis.MouseEvent>,
   ) => void;
   onBeforeStopResponding: () => void;
+  onCopyUpload: IEventCallbacks['onCopyUpload'];
 }
 
 export type ChatAreaEventCallback = Partial<ChatAreaLifeCycleEventMap> &

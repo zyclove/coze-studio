@@ -27,21 +27,21 @@ import (
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 
+	"github.com/coze-dev/coze-studio/backend/bizpkg/llm/modelbuilder"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/workflow"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/chatmodel"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/modelmgr"
-	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
 )
 
 type Config struct {
-	Agent        *entity.SingleAgent
-	UserID       string
-	Identity     *entity.AgentIdentity
-	ModelMgr     modelmgr.Manager
-	ModelFactory chatmodel.Factory
-	CPStore      compose.CheckPointStore
+	Agent    *entity.SingleAgent
+	UserID   string
+	Identity *entity.AgentIdentity
+	CPStore  compose.CheckPointStore
+
+	CustomVariables map[string]string
+
+	ConversationID int64
 }
 
 const (
@@ -69,6 +69,11 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if conf.CustomVariables != nil {
+		for k, v := range conf.CustomVariables {
+			avs[k] = v
+		}
+	}
 
 	promptVars := &promptVariables{
 		Agent: conf.Agent,
@@ -88,15 +93,7 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 		return nil, err
 	}
 
-	modelInfo, err := loadModelInfo(ctx, conf.ModelMgr, ptr.From(conf.Agent.ModelInfo.ModelId))
-	if err != nil {
-		return nil, err
-	}
-
-	chatModel, err := newChatModel(ctx, &config{
-		modelFactory: conf.ModelFactory,
-		modelInfo:    modelInfo,
-	})
+	chatModel, modelInfo, err := modelbuilder.BuildModelBySettings(ctx, conf.Agent.ModelInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +104,15 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 		userID:        conf.UserID,
 		agentIdentity: conf.Identity,
 		toolConf:      conf.Agent.Plugin,
+
+		conversationID: conf.ConversationID,
 	})
 	if err != nil {
 		return nil, err
 	}
 	tr := newPreToolRetriever(&toolPreCallConf{})
 
-	wfTools, toolsReturnDirectly, err := newWorkflowTools(ctx, &workflowConfig{
+	wfTools, returnDirectlyTools, err := newWorkflowTools(ctx, &workflowConfig{
 		wfInfos: conf.Agent.Workflow,
 	})
 	if err != nil {
@@ -162,8 +161,8 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 	if len(agentTools) > 0 {
 		isReActAgent = true
 		requireCheckpoint = true
-		if modelInfo.Meta.Capability != nil && !modelInfo.Meta.Capability.FunctionCall {
-			return nil, fmt.Errorf("model %v does not support function call", modelInfo.Meta.Name)
+		if modelInfo.Capability != nil && !modelInfo.Capability.GetFunctionCall() {
+			return nil, fmt.Errorf("model %v does not support function call", modelInfo.DisplayInfo.Name)
 		}
 	}
 
@@ -176,7 +175,7 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 			ToolsConfig: compose.ToolsNodeConfig{
 				Tools: agentTools,
 			},
-			ToolReturnDirectly: toolsReturnDirectly,
+			ToolReturnDirectly: returnDirectlyTools,
 			ModelNodeName:      keyOfReActAgentChatModel,
 			ToolsNodeName:      keyOfReActAgentToolsNode,
 		})
@@ -273,10 +272,11 @@ func BuildAgent(ctx context.Context, conf *Config) (r *AgentRunner, err error) {
 	}
 
 	return &AgentRunner{
-		runner:            runner,
-		requireCheckpoint: requireCheckpoint,
-		modelInfo:         modelInfo,
-		containWfTool:     containWfTool,
+		runner:              runner,
+		requireCheckpoint:   requireCheckpoint,
+		modelInfo:           modelInfo,
+		containWfTool:       containWfTool,
+		returnDirectlyTools: returnDirectlyTools,
 	}, nil
 }
 

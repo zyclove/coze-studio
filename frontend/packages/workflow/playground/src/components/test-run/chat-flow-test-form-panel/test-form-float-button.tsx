@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { I18n } from '@coze-arch/i18n';
 import { IconCozAdjust } from '@coze-arch/coze-design/icons';
 import { Typography } from '@coze-arch/coze-design';
@@ -41,7 +41,7 @@ export const TestFormFloatButton = ({
   }
 
   return (
-    <>
+    <div className={css['float-button-container']}>
       <div
         className={css['float-button']}
         onClick={handleOpenForm}
@@ -56,6 +56,6 @@ export const TestFormFloatButton = ({
         </Typography.Text>
         <IconCozAdjust className="coz-fg-dim" />
       </div>
-    </>
+    </div>
   );
 };

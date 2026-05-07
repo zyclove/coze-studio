@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import React, { useMemo, useState } from 'react';
 
+import { useIDEGlobalStore } from '@coze-project-ide/framework';
 import { I18n } from '@coze-arch/i18n';
 import { IconCozChat } from '@coze-arch/coze-design/icons';
 import { Modal, Select, Typography, Toast } from '@coze-arch/coze-design';
@@ -24,9 +25,8 @@ import {
   type ProjectConversation,
 } from '@coze-arch/bot-api/workflow_api';
 import { workflowApi } from '@coze-arch/bot-api';
-import { useIDEGlobalStore } from '@coze-project-ide/framework';
 
-import { DEFAULT_UNIQUE_ID, DEFAULT_CONVERSATION_NAME } from '../../constants';
+import { DEFAULT_CONVERSATION_NAME } from '../../constants';
 
 import s from './index.module.less';
 
@@ -68,7 +68,7 @@ export const useDeleteChat = ({
     }));
 
   /**
-   * 给外部的 check，用作 replace 请求
+   * To an external check, used as a replace request
    */
   const handleDelete = async (_chat?: ProjectConversation) => {
     setChat(_chat);
@@ -109,7 +109,7 @@ export const useDeleteChat = ({
         setReplace([]);
         setVisible(false);
         Toast.success(I18n.t('wf_chatflow_112'));
-        // 删除成功后刷新列表
+        // Refresh the list after successful deletion
         manualRefresh();
         setActivateChat(undefined);
       } else {
@@ -154,7 +154,7 @@ export const useDeleteChat = ({
                 style={{ width: '50%' }}
                 dropdownStyle={{ width: 220 }}
                 size="small"
-                defaultValue={DEFAULT_UNIQUE_ID}
+                defaultValue={optionList[0]?.value}
                 optionList={optionList}
                 onChange={value => {
                   const selectItem = staticList.find(

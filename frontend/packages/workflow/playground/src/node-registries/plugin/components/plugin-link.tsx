@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { useSearchParams } from 'react-router-dom';
 import React from 'react';
 
 import { type ApiNodeIdentifier } from '@coze-workflow/nodes';
 import { I18n } from '@coze-arch/i18n';
-import { PluginProductStatus } from '@coze-arch/bot-api/developer_api';
 import { IconCozLoading, IconCozExit } from '@coze-arch/coze-design/icons';
+import { PluginFrom } from '@coze-arch/bot-api/playground_api';
+import { PluginProductStatus } from '@coze-arch/bot-api/developer_api';
 
 import { useGlobalState } from '@/hooks';
 
@@ -49,9 +50,10 @@ export const PluginLink = ({
     pluginID: pluginId,
     projectID: projectId,
     pluginProductStatus,
+    plugin_from,
   } = apiNodeDetail || {};
 
-  // 同空间，且状态为待提交的插件，直接跳转 /space/xxx/plugin/yyy
+  // In the same space, and the status is to be submitted plug-ins, jump directly /space/xxx/plugin/yyy
   const noNeedQuery =
     spaceIdFromUrl === spaceId &&
     pluginProductStatus === PluginProductStatus.Default;
@@ -61,7 +63,7 @@ export const PluginLink = ({
     needQuery: !noNeedQuery,
   });
 
-  // 运维平台不需要展示插件跳转链接
+  // The operation and maintenance platform does not need to display plug-ins, jump links
   if (IS_BOT_OP) {
     return null;
   }
@@ -72,13 +74,16 @@ export const PluginLink = ({
 
   const handleClick = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
     const ideNavigate = getProjectApi()?.navigate;
-    if (projectId && projectId !== '0' && ideNavigate) {
+    if (IS_OPEN_SOURCE && plugin_from === PluginFrom.FromSaas) {
+      const url = window.atob('aHR0cHM6Ly93d3cuY296ZS5jbg==');
+      window.open(`${url}/store/plugin/${pluginId}?plugin_id=true`, '_blank');
+    } else if (projectId && projectId !== '0' && ideNavigate) {
       ideNavigate(`/plugin/${pluginId}`);
     } else {
       const url =
         storePluginId && !noNeedQuery
-          ? `/store/plugin/${storePluginId}` // 其他状态（已上架，已下架，审核中）
-          : `/space/${spaceId}/plugin/${pluginId}`; // 未上架
+          ? `/store/plugin/${storePluginId}` // Other status (on the shelves, off the shelves, under review)
+          : `/space/${spaceId}/plugin/${pluginId}`; // Not on the shelves
       window.open(url, '_blank');
     }
     e.stopPropagation();

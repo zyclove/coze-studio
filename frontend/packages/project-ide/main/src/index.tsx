@@ -73,8 +73,7 @@ const ProjectIDE: React.FC<ProjectIDEProps> = memo(
       () => ({
         view: {
           widgetRegistries: [
-            // will support soon
-            ...(IS_OPEN_SOURCE ? [] : [ConversationRegistry]),
+            ConversationRegistry,
             WorkflowWidgetRegistry,
             DatabaseWidgetRegistry,
             KnowledgeWidgetRegistry,
@@ -106,7 +105,7 @@ const ProjectIDE: React.FC<ProjectIDEProps> = memo(
       [spaceId, projectId, version, navigate],
     );
     if (!canView) {
-      // 无法查看跳转到兜底报错页
+      // Unable to view Jump to the bottom cover error page
       throw new Error('can not view');
     }
 

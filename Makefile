@@ -8,18 +8,24 @@ SYNC_DB_SCRIPT := $(SCRIPTS_DIR)/setup/db_migrate_apply.sh
 DUMP_DB_SCRIPT := $(SCRIPTS_DIR)/setup/db_migrate_dump.sh
 SETUP_DOCKER_SCRIPT := $(SCRIPTS_DIR)/setup/docker.sh
 SETUP_PYTHON_SCRIPT := $(SCRIPTS_DIR)/setup/python.sh
-COMPOSE_FILE := docker/docker-compose.yml
+COMPOSE_FILE := docker/docker-compose-debug.yml
+OCEANBASE_COMPOSE_FILE := docker/docker-compose-oceanbase.yml
+OCEANBASE_DEBUG_COMPOSE_FILE := docker/docker-compose-oceanbase_debug.yml
 MYSQL_SCHEMA := ./docker/volumes/mysql/schema.sql
 MYSQL_INIT_SQL := ./docker/volumes/mysql/sql_init.sql
-ENV_FILE := ./docker/.env
+ENV_FILE := ./docker/.env.debug
+WEB_ENV_FILE := ./docker/.env
+OCEANBASE_ENV_FILE := ./docker/.env.debug
 STATIC_DIR := ./bin/resources/static
+ES_INDEX_SCHEMA := ./docker/volumes/elasticsearch/es_index_schema
+ES_SETUP_SCRIPT := ./docker/volumes/elasticsearch/setup_es.sh
 
 debug: env middleware python server
 
 env:
 	@if [ ! -f "$(ENV_FILE)" ]; then \
 		echo "Env file '$(ENV_FILE)' not found, using example env..."; \
-		cp ./docker/.env.example $(ENV_FILE); \
+		cp ./docker/.env.debug.example $(ENV_FILE); \
 	fi
 
 fe:
@@ -32,19 +38,21 @@ server: env
 		$(MAKE) fe; \
 	fi
 	@echo "Building and run server..."
-	@bash $(BUILD_SERVER_SCRIPT) -start
+	@APP_ENV=debug bash $(BUILD_SERVER_SCRIPT) -start
+
 
 build_server:
 	@echo "Building server..."
 	@bash $(BUILD_SERVER_SCRIPT)
 
-sync_db:
+sync_db: env
 	@echo "Syncing database..."
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) --profile mysql-setup up -d
 
-dump_db: dump_sql_schema
+dump_db: env dump_sql_schema
 	@echo "Dumping database..."
-	@bash $(DUMP_DB_SCRIPT)
+	@. $(ENV_FILE); \
+	bash $(DUMP_DB_SCRIPT)
 
 sql_init:
 	@echo "Init sql data..."
@@ -54,12 +62,25 @@ middleware:
 	@echo "Start middleware docker environment for opencoze app"
 	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) --profile middleware up -d --wait
 
+build_docker:
+	@echo "Build docker image"
+	@docker compose -f $(COMPOSE_FILE) --profile build-server build
 
-web:
+web_env:
+	@if [ ! -f "$(WEB_ENV_FILE)" ]; then \
+		echo "Env file '$(WEB_ENV_FILE)' not found, using example env..."; \
+		cp ./docker/.env.example $(WEB_ENV_FILE); \
+	fi
+
+web: web_env
 	@echo "Start web server in docker"
-	@docker compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) --profile '*' up -d --wait
+	@docker compose -f docker/docker-compose.yml --env-file $(WEB_ENV_FILE) up -d
 
-down:
+down_web:
+	@echo "Stop web server in docker"
+	@docker compose -f docker/docker-compose.yml --env-file $(WEB_ENV_FILE) down
+
+down: env
 	@echo "Stop all docker containers"
 	@docker compose -f $(COMPOSE_FILE) --profile '*' down
 
@@ -75,14 +96,37 @@ dump_sql_schema:
 	@echo "Dumping mysql schema to $(MYSQL_SCHEMA)..."
 	@. $(ENV_FILE); \
 	{ echo "SET NAMES utf8mb4;\nCREATE DATABASE IF NOT EXISTS opencoze COLLATE utf8mb4_unicode_ci;"; atlas schema inspect -u $$ATLAS_URL --format "{{ sql . }}" --exclude "atlas_schema_revisions,table_*" | sed 's/CREATE TABLE/CREATE TABLE IF NOT EXISTS/g'; } > $(MYSQL_SCHEMA)
-	@sed -I '' -E 's/(\))[[:space:]]+CHARSET utf8mb4/\1 ENGINE=InnoDB CHARSET utf8mb4/' $(MYSQL_SCHEMA)
+		@sed -i.bak -E 's/(\))[[:space:]]+CHARSET utf8mb4/\1 ENGINE=InnoDB CHARSET utf8mb4/' $(MYSQL_SCHEMA) && rm -f $(MYSQL_SCHEMA).bak
+		@sed -i.bak "s/\"/'/g" $(MYSQL_SCHEMA) && rm -f $(MYSQL_SCHEMA).bak
+	@cat $(MYSQL_INIT_SQL) >> $(MYSQL_SCHEMA)
 	@echo "Dumping mysql schema to helm/charts/opencoze/files/mysql ..."
 	@cp $(MYSQL_SCHEMA) ./helm/charts/opencoze/files/mysql/
-	@cp $(MYSQL_INIT_SQL) ./helm/charts/opencoze/files/mysql/
 
 atlas-hash:
 	@echo "Rehash atlas migration files..."
 	@(cd ./docker/atlas && atlas migrate hash)
+
+setup_es_index:
+	@echo "Setting up Elasticsearch index..."
+	@. $(ENV_FILE); \
+	bash $(ES_SETUP_SCRIPT) --index-dir $(ES_INDEX_SCHEMA) --docker-host false --es-address "$$ES_ADDR"
+
+oceanbase_env:
+	@bash scripts/setup/oceanbase_env.sh debug
+
+oceanbase_debug: oceanbase_env oceanbase_middleware_debug python oceanbase_server_debug
+
+oceanbase_middleware_debug:
+	@echo "Starting OceanBase debug middleware..."
+	@docker compose -f $(OCEANBASE_DEBUG_COMPOSE_FILE) --env-file $(ENV_FILE) --profile middleware up -d --wait
+
+oceanbase_server_debug:
+	@if [ ! -d "$(STATIC_DIR)" ]; then \
+		echo "Static directory '$(STATIC_DIR)' not found, building frontend..."; \
+		$(MAKE) fe; \
+	fi
+	@echo "Building and run OceanBase debug server..."
+	@APP_ENV=debug bash $(BUILD_SERVER_SCRIPT) -start
 
 help:
 	@echo "Usage: make [target]"
@@ -100,7 +144,14 @@ help:
 	@echo "  middleware       - Setup middlewares docker environment, but exclude the server app."
 	@echo "  web              - Setup web docker environment, include middlewares docker."
 	@echo "  down             - Stop the docker containers."
+	@echo "  down_web         - Stop the web docker containers."
 	@echo "  clean            - Stop the docker containers and clean volumes."
 	@echo "  python           - Setup python environment."
 	@echo "  atlas-hash       - Rehash atlas migration files."
+	@echo "  setup_es_index   - Setup elasticsearch index."
+	@echo ""
+	@echo "OceanBase Commands:"
+	@echo "  oceanbase_env    - Setup OceanBase environment file (like 'env')."
+	@echo "  oceanbase_debug  - Start OceanBase debug environment (like 'debug')."
+	@echo ""
 	@echo "  help             - Show this help message."

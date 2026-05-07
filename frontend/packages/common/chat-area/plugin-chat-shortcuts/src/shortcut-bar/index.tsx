@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-// 快捷指令操作bar
+
+// Quick command bar
 import { type CSSProperties, type FC, useRef, useState } from 'react';
 
 import cls from 'classnames';
-import { type ShortCutCommand } from '@coze-agent-ide/tool-config';
 import { useMessageWidth } from '@coze-common/chat-area';
 import { OverflowList, Popover } from '@coze-arch/bot-semi';
 import { SendType } from '@coze-arch/bot-api/playground_api';
+import { type ShortCutCommand } from '@coze-agent-ide/tool-config';
 
 import {
   enableSendTypePanelHideTemplate,
@@ -48,12 +48,14 @@ interface ChatShortCutBarProps {
   ) => void;
   className?: string;
   wrapperClassName?: string;
-  uiMode?: UIMode; // 默认为白色，有背景的时候为模糊
+  uiMode?: UIMode; // The default is white, and it is blurred when there is a background.
   defaultId?: string;
   wrapperStyle?: CSSProperties;
   toolTipFooterSlot?: React.ReactNode;
   onBeforeSendTemplateShortcut?: (
-    params: OnBeforeSendTemplateShortcutParams,
+    params: OnBeforeSendTemplateShortcutParams & {
+      shortcut: ShortCutCommand;
+    },
   ) => OnBeforeSendTemplateShortcutParams;
   onBeforeSendTextMessage?: (
     params: OnBeforeSendQueryShortcutParams,
@@ -100,8 +102,8 @@ export const ShortcutBar: FC<ChatShortCutBarProps> = props => {
 
   const shortcutClick = (shortcut: ShortCutCommand) => {
     /**
-     * send_type=SendTypePanel 且 components_list hide均为true
-     * 直接发送
+     * send_type = SendTypePanel and components_list hide is true
+     * send directly
      */
     const hideTemplate = enableSendTypePanelHideTemplate(shortcut);
 
@@ -174,7 +176,7 @@ export const ShortcutBar: FC<ChatShortCutBarProps> = props => {
   };
 
   /**
-   * sendType=panel 支持不展示组件直接发送
+   * sendType = panel supports sending directly without displaying components
    */
   const onShortcutTemplateNoParamsSubmit = (
     componentsFormValues: Record<string, TValue>,
@@ -186,7 +188,7 @@ export const ShortcutBar: FC<ChatShortCutBarProps> = props => {
 
     const { agent_id, object_id, components_list, tool_info } = shortcut;
     /**
-     * sendType=panel,useTool=true 无参数直接发送
+     * sendType = panel, useTool = true Send directly without parameters
      */
     const withoutComponentsList =
       !!tool_info?.tool_name && !components_list?.length;
@@ -270,7 +272,7 @@ export const ShortcutBar: FC<ChatShortCutBarProps> = props => {
             }}
             minVisibleItems={1}
             items={shortcuts}
-            // @ts-expect-error  visibleItemRenderer 有问题
+            // @ts-expect-error visibleItemRenderer has a problem
             visibleItemRenderer={renderShortcut}
             overflowRenderer={overflowItems => {
               if (!overflowItems.length) {

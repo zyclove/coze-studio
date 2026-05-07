@@ -18,28 +18,35 @@ package plugin
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
-	pluginConf "github.com/coze-dev/coze-studio/backend/domain/plugin/conf"
+	"github.com/coze-dev/coze-studio/backend/domain/plugin/conf"
 	"github.com/coze-dev/coze-studio/backend/domain/plugin/repository"
 	"github.com/coze-dev/coze-studio/backend/domain/plugin/service"
 	search "github.com/coze-dev/coze-studio/backend/domain/search/service"
 	user "github.com/coze-dev/coze-studio/backend/domain/user/service"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/idgen"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
+	"github.com/coze-dev/coze-studio/backend/infra/cache"
+	"github.com/coze-dev/coze-studio/backend/infra/idgen"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
+	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
+	"github.com/coze-dev/coze-studio/backend/pkg/lang/slices"
+	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
 
 type ServiceComponents struct {
 	IDGen    idgen.IDGenerator
 	DB       *gorm.DB
 	OSS      storage.Storage
+	CacheCli cache.Cmdable
 	EventBus search.ResourceEventBus
 	UserSVC  user.User
 }
 
 func InitService(ctx context.Context, components *ServiceComponents) (*PluginApplicationService, error) {
-	err := pluginConf.InitConfig(ctx)
+	err := conf.InitConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +70,16 @@ func InitService(ctx context.Context, components *ServiceComponents) (*PluginApp
 		IDGen:      components.IDGen,
 		DB:         components.DB,
 		OSS:        components.OSS,
+		CacheCli:   components.CacheCli,
 		PluginRepo: pluginRepo,
 		ToolRepo:   toolRepo,
 		OAuthRepo:  oauthRepo,
 	})
+
+	err = checkIDExist(ctx, pluginSVC)
+	if err != nil {
+		return nil, err
+	}
 
 	PluginApplicationSVC.DomainSVC = pluginSVC
 	PluginApplicationSVC.eventbus = components.EventBus
@@ -76,4 +89,52 @@ func InitService(ctx context.Context, components *ServiceComponents) (*PluginApp
 	PluginApplicationSVC.toolRepo = toolRepo
 
 	return PluginApplicationSVC, nil
+}
+
+func checkIDExist(ctx context.Context, pluginService service.PluginService) error {
+	pluginProducts := conf.GetAllPluginProducts()
+
+	pluginIDs := make([]int64, 0, len(pluginProducts))
+	var toolIDs []int64
+	for _, p := range pluginProducts {
+		pluginIDs = append(pluginIDs, p.Info.ID)
+		toolIDs = append(toolIDs, p.ToolIDs...)
+	}
+
+	pluginInfos, err := pluginService.MGetDraftPlugins(ctx, pluginIDs)
+	if err != nil {
+		return err
+	}
+	if len(pluginInfos) > 0 {
+		conflictsIDs := make([]int64, 0, len(pluginInfos))
+		for _, p := range pluginInfos {
+			conflictsIDs = append(conflictsIDs, p.ID)
+		}
+
+		return errorx.New(errno.ErrPluginIDExist,
+			errorx.KV("plugin_id", strings.Join(slices.Transform(conflictsIDs, func(id int64) string {
+				return strconv.FormatInt(id, 10)
+			}), ",")),
+		)
+	}
+
+	tools, err := pluginService.MGetDraftTools(ctx, toolIDs)
+	if err != nil {
+		return err
+	}
+
+	if len(tools) > 0 {
+		conflictsIDs := make([]int64, 0, len(tools))
+		for _, t := range tools {
+			conflictsIDs = append(conflictsIDs, t.ID)
+		}
+
+		return errorx.New(errno.ErrToolIDExist,
+			errorx.KV("tool_id", strings.Join(slices.Transform(conflictsIDs, func(id int64) string {
+				return strconv.FormatInt(id, 10)
+			}), ",")),
+		)
+	}
+	return nil
+
 }

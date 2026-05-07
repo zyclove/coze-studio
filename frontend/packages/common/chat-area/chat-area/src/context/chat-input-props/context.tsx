@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type ReactNode, createContext } from 'react';
 
 import {
@@ -23,7 +23,8 @@ import {
 
 type OnBeforeSubmit = IChatInputProps['onBeforeSubmit'];
 
-export interface ChatInputProps {
+export interface ChatInputProps
+  extends Pick<IChatInputProps, 'leftActions' | 'rightSlot'> {
   /**
    * {@link OnBeforeSubmit}
    */

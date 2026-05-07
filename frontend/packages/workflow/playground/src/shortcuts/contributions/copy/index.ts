@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { inject, injectable } from 'inversify';
 import { TransformData } from '@flowgram-adapter/free-layout-editor';
 import {
@@ -52,7 +52,7 @@ import { hasSystemNodes } from './is-system-nodes';
 import { getValidNodes } from './get-valid-nodes';
 
 /**
- * 复制快捷键
+ * Copy shortcut
  */
 @injectable()
 export class WorkflowCopyShortcutsContribution
@@ -62,7 +62,7 @@ export class WorkflowCopyShortcutsContribution
   @inject(WorkflowSelectService) private selection: WorkflowSelectService;
   @inject(WorkflowGlobalStateEntity)
   private globalState: WorkflowGlobalStateEntity;
-  /** 注册快捷键 */
+  /** Registration shortcut */
   public registerShortcuts(registry: WorkflowShortcutsRegistry): void {
     registry.addHandlers({
       commandId: WorkflowCommands.COPY_NODES,
@@ -71,8 +71,10 @@ export class WorkflowCopyShortcutsContribution
       execute: safeFn(this.handle.bind(this)),
     });
   }
-  public async toData(): Promise<WorkflowClipboardData> {
-    const validNodes = getValidNodes(this.selectedNodes);
+  public async toData(
+    nodes?: WorkflowNodeEntity[],
+  ): Promise<WorkflowClipboardData> {
+    const validNodes = getValidNodes(nodes ?? this.selectedNodes);
     const source = this.toSource();
     const json = await this.toJSON(validNodes);
     const bounds = this.getEntireBounds(validNodes);
@@ -83,7 +85,7 @@ export class WorkflowCopyShortcutsContribution
       bounds,
     };
   }
-  /** 获取来源数据 */
+  /** Access to source data */
   public toSource(): WorkflowClipboardSource {
     return {
       workflowId: this.globalState.workflowId,
@@ -93,7 +95,7 @@ export class WorkflowCopyShortcutsContribution
       host: window.location.host,
     };
   }
-  /** 获取节点的 JSON */
+  /** Get the node's JSON */
   public async toJSON(
     nodes: WorkflowNodeEntity[],
   ): Promise<WorkflowClipboardJSON> {
@@ -104,10 +106,10 @@ export class WorkflowCopyShortcutsContribution
       edges: edgeJSONs,
     };
   }
-  /** 处理复制事件 */
+  /** Handling replication events */
   private async handle(): Promise<void> {
     if (await this.hasTextSelected()) {
-      // 如果有选中的文字，优先复制文字
+      // If there is a selected text, copy the text first.
       return;
     }
     if (!isValid(this.selectedNodes)) {
@@ -116,7 +118,7 @@ export class WorkflowCopyShortcutsContribution
     const data = await this.toData();
     await this.write(data);
   }
-  /** 写入剪贴板 */
+  /** Write to clipboard */
   private async write(data: WorkflowClipboardData): Promise<void> {
     try {
       await navigator.clipboard.writeText(JSON.stringify(data));
@@ -135,7 +137,7 @@ export class WorkflowCopyShortcutsContribution
       console.error('Failed to write text: ', err);
     }
   }
-  /** 是否有选中的文字 */
+  /** Is there any selected text? */
   private async hasTextSelected(): Promise<boolean> {
     if (!window.getSelection()?.toString()) {
       return false;
@@ -148,13 +150,13 @@ export class WorkflowCopyShortcutsContribution
     });
     return true;
   }
-  /** 获取选中的节点 */
+  /** Get the selected node */
   private get selectedNodes(): WorkflowNodeEntity[] {
     return this.selection.selection.filter(
       n => n instanceof WorkflowNodeEntity,
     ) as WorkflowNodeEntity[];
   }
-  /** 获取节点的 JSON */
+  /** Get the node's JSON */
   private async getNodeJSONs(
     nodes: WorkflowNodeEntity[],
   ): Promise<WorkflowClipboardNodeJSON[]> {
@@ -163,7 +165,7 @@ export class WorkflowCopyShortcutsContribution
     );
     return nodeJSONs.filter(Boolean) as WorkflowClipboardNodeJSON[];
   }
-  /** 获取节点的 JSON */
+  /** Get the node's JSON */
   private async toNodeJSON(
     node: WorkflowNodeEntity,
   ): Promise<WorkflowClipboardNodeJSON> {
@@ -172,7 +174,7 @@ export class WorkflowCopyShortcutsContribution
     )) as WorkflowClipboardNodeJSON;
     nodeJSON._temp = this.getNodeTemporary(node);
 
-    // 递归处理所有嵌套层级的blocks
+    // Recursive processing of blocks at all nested levels
     if (nodeJSON.blocks?.length) {
       await Promise.all(
         nodeJSON.blocks.map(async childJSON => {
@@ -182,7 +184,7 @@ export class WorkflowCopyShortcutsContribution
           }
           childJSON._temp = this.getNodeTemporary(child);
 
-          // 递归处理子节点的blocks
+          // Recursive processing of sub-node blocks
           if (childJSON.blocks?.length) {
             await this.processBlocksRecursively(childJSON.blocks);
           }
@@ -191,7 +193,7 @@ export class WorkflowCopyShortcutsContribution
     }
     return nodeJSON;
   }
-  /** 递归处理blocks */
+  /** Recursive processing blocks */
   private async processBlocksRecursively(
     blocks: WorkflowClipboardNodeJSON[],
   ): Promise<void> {
@@ -219,7 +221,7 @@ export class WorkflowCopyShortcutsContribution
       return;
     }
   }
-  /** 获取节点的额外数据 */
+  /** Get additional data for the node */
   private getNodeTemporary(
     node: WorkflowNodeEntity,
   ): WorkflowClipboardNodeTemporary {
@@ -231,7 +233,7 @@ export class WorkflowCopyShortcutsContribution
       externalData,
     };
   }
-  /** 获取节点的矩形 */
+  /** Get the node's rectangle */
   private getNodeBounds(node: WorkflowNodeEntity): WorkflowClipboardRect {
     const nodeData = node.getData<TransformData>(TransformData);
     return {
@@ -241,7 +243,7 @@ export class WorkflowCopyShortcutsContribution
       height: nodeData.bounds.height,
     };
   }
-  /** 获取所有节点的边 */
+  /** Get the edges of all nodes */
   private getEdgeJSONs(nodes: WorkflowNodeEntity[]): WorkflowEdgeJSON[] {
     const lineSet = new Set<WorkflowLineEntity>();
     const nodeIdSet = new Set(nodes.map(n => n.id));
@@ -260,7 +262,7 @@ export class WorkflowCopyShortcutsContribution
     });
     return Array.from(lineSet).map(line => line.toJSON());
   }
-  /** 获取所有节点的矩形 */
+  /** Get the rectangle of all nodes */
   private getEntireBounds(nodes: WorkflowNodeEntity[]): WorkflowClipboardRect {
     const bounds = nodes.map(
       node => node.getData<TransformData>(TransformData).bounds,

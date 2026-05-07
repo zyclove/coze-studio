@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 /** for open coze */
 export enum PluginAuthMode {
   /** No authorization required */
@@ -24,6 +24,8 @@ export enum PluginAuthMode {
   Configured = 2,
   /** Authorization is required, but the configuration can be empty */
   Supported = 3,
+  /** Authorization is required, but the configuration can be empty */
+  NeedInstalled = 9,
 }
 
 export interface AuthMode {

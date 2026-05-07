@@ -19,7 +19,7 @@ package prompt
 import (
 	"context"
 
-	"github.com/coze-dev/coze-studio/backend/api/model/ocean/cloud/playground"
+	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	"github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	"github.com/coze-dev/coze-studio/backend/application/search"
@@ -97,9 +97,18 @@ func (p *PromptApplicationService) UpsertPromptResource(ctx context.Context, req
 func (p *PromptApplicationService) GetPromptResourceInfo(ctx context.Context, req *playground.GetPromptResourceInfoRequest) (
 	resp *playground.GetPromptResourceInfoResponse, err error,
 ) {
+
+	uid := ctxutil.GetUIDFromCtx(ctx)
+	if uid == nil {
+		return nil, errorx.New(errno.ErrPromptPermissionCode, errorx.KV("msg", "no session data provided"))
+	}
+
 	promptInfo, err := p.DomainSVC.GetPromptResource(ctx, req.GetPromptResourceID())
 	if err != nil {
 		return nil, err
+	}
+	if promptInfo.CreatorID != *uid {
+		return nil, errorx.New(errno.ErrPromptPermissionCode, errorx.KV("msg", "no permission"))
 	}
 
 	return &playground.GetPromptResourceInfoResponse{
@@ -199,11 +208,7 @@ func (p *PromptApplicationService) updatePromptResource(ctx context.Context, req
 		return nil, errorx.New(errno.ErrPromptPermissionCode, errorx.KV("msg", "no permission"))
 	}
 
-	promptResource.Name = req.Prompt.GetName()
-	promptResource.Description = req.Prompt.GetDescription()
-	promptResource.PromptText = req.Prompt.GetPromptText()
-
-	err = p.DomainSVC.UpdatePromptResource(ctx, promptResource)
+	err = p.DomainSVC.UpdatePromptResource(ctx, promptID, req.Prompt.Name, req.Prompt.Description, req.Prompt.PromptText)
 	if err != nil {
 		return nil, err
 	}

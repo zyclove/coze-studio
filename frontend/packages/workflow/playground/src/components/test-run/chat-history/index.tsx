@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import React, { Suspense, lazy } from 'react';
 
 import { isEmpty } from 'lodash-es';
 import { userStoreService } from '@coze-studio/user-store';
+import { type IWorkflow, type IProject } from '@coze-studio/open-chat';
 import { IntelligenceType } from '@coze-arch/idl/intelligence_api';
 import { I18n } from '@coze-arch/i18n';
 import { IconCozIllusAdd } from '@coze-arch/coze-design/illustrations';
@@ -26,7 +27,6 @@ import {
   type ProjectConversation,
   CreateEnv,
 } from '@coze-arch/bot-api/workflow_api';
-import { type IWorkflow, type IProject } from '@coze-studio/open-chat';
 
 import { useSkeleton } from './use-skeleton';
 
@@ -52,7 +52,7 @@ export interface ChatHistoryProps {
   onGetChatFlowExecuteId?: (executeId: string) => void;
 }
 
-/** 后端 @qiangshunliang 定义，当没有对话存在的时候，展示空状态 */
+/** Backend @qiangshunliang definition, display empty state when no dialogue exists */
 const DISABLED_CONVERSATION = '0';
 
 // eslint-disable-next-line complexity
@@ -61,7 +61,7 @@ export const ChatHistory = ({
   projectOrBotInfo,
   activateChat,
   type,
-  // 默认不展示对话框
+  // Default does not show dialog box
   showInputArea = false,
   onGetChatFlowExecuteId,
   defaultText = '',
@@ -72,8 +72,8 @@ export const ChatHistory = ({
 
   const chatUserInfo = {
     id: userInfo?.user_id_str || '',
-    name: userInfo?.name || '',
-    avatar: userInfo?.avatar_url || '',
+    nickname: userInfo?.name || '',
+    url: userInfo?.avatar_url || '',
   };
 
   if (
@@ -82,7 +82,7 @@ export const ChatHistory = ({
     (activateChat?.conversation_id === DISABLED_CONVERSATION &&
       isEmpty(workflowInfo))
   ) {
-    // workflow 场景不展示空状态
+    // Workflow scenes do not show empty states
     if (!isEmpty(workflowInfo)) {
       return null;
     }
@@ -123,10 +123,12 @@ export const ChatHistory = ({
         }}
         areaUi={{
           isNeedClearContext: false,
+          isNeedClearMessage: true,
           input: {
             isShow: showInputArea,
             defaultText,
             renderChatInputTopSlot: topSlot,
+            isNeedAudio: false,
           },
           renderLoading,
           uiTheme: 'chatFlow',

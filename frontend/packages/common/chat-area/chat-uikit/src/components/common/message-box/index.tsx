@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type FC } from 'react';
 
 import { Layout } from '@coze-common/chat-uikit-shared';
@@ -40,7 +40,8 @@ export const MessageBox: FC<
 
     messageBubbleClassname,
     messageBubbleWrapperClassname,
-    messageBoxWraperClassname,
+    messageBoxWrapperClassname,
+    messageHoverWrapperClassName,
     messageErrorWrapperClassname,
     isHoverShowUserInfo,
 
@@ -69,7 +70,8 @@ export const MessageBox: FC<
       classname={classname}
       messageBubbleWrapperClassname={messageBubbleWrapperClassname}
       messageBubbleClassname={messageBubbleClassname}
-      messageBoxWraperClassname={messageBoxWraperClassname}
+      messageBoxWrapperClassname={messageBoxWrapperClassname}
+      messageHoverWrapperClassName={messageHoverWrapperClassName}
       messageErrorWrapperClassname={messageErrorWrapperClassname}
       isHoverShowUserInfo={isHoverShowUserInfo}
       layout={layout}

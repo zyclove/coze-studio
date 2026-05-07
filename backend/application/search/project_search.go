@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
-	search2 "github.com/coze-dev/coze-studio/backend/api/model/crossdomain/search"
-	"github.com/coze-dev/coze-studio/backend/api/model/flow/marketplace/marketplace_common"
-	"github.com/coze-dev/coze-studio/backend/api/model/flow/marketplace/product_common"
-	"github.com/coze-dev/coze-studio/backend/api/model/flow/marketplace/product_public_api"
-	"github.com/coze-dev/coze-studio/backend/api/model/intelligence"
-	"github.com/coze-dev/coze-studio/backend/api/model/intelligence/common"
+	"github.com/coze-dev/coze-studio/backend/api/model/app/intelligence"
+	"github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/common"
+	"github.com/coze-dev/coze-studio/backend/api/model/marketplace/marketplace_common"
+	"github.com/coze-dev/coze-studio/backend/api/model/marketplace/product_common"
+	"github.com/coze-dev/coze-studio/backend/api/model/marketplace/product_public_api"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	search2 "github.com/coze-dev/coze-studio/backend/crossdomain/search/model"
 	searchEntity "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/conv"
@@ -76,28 +76,38 @@ func (s *SearchApplicationService) GetDraftIntelligenceList(ctx context.Context,
 	intelligenceDataList := make([]*intelligence.IntelligenceData, len(searchResp.Data))
 
 	logs.CtxDebugf(ctx, "[GetDraftIntelligenceList] searchResp.Data: %v", conv.DebugJsonToStr(searchResp.Data))
+	if len(searchResp.Data) > 1 {
+		for idx := range searchResp.Data[1:] {
+			index := idx + 1
+			data := searchResp.Data[index]
+			tasks.Go(func() error {
+				info, err := s.packIntelligenceData(ctx, data)
+				if err != nil {
+					logs.CtxErrorf(ctx, "[packIntelligenceData] failed id %v, type %d , name %s, err: %v", data.ID, data.Type, data.GetName(), err)
+					return nil
+				}
 
-	for idx := range searchResp.Data {
-		data := searchResp.Data[idx]
-		index := idx
-		tasks.Go(func() error {
-			info, err := s.packIntelligenceData(ctx, data)
-			if err != nil {
-				logs.CtxErrorf(ctx, "[packIntelligenceData] failed id %v, type %d , name %s, err: %v", data.ID, data.Type, data.GetName(), err)
-
-				return err
-			}
-
-			lock.Lock()
-			defer lock.Unlock()
-			intelligenceDataList[index] = info
-			return nil
-		})
-
-		s.packIntelligenceData(ctx, data)
+				lock.Lock()
+				defer lock.Unlock()
+				intelligenceDataList[index] = info
+				return nil
+			})
+		}
 	}
-
-	_ = tasks.Wait()
+	if len(searchResp.Data) != 0 {
+		info, err := s.packIntelligenceData(ctx, searchResp.Data[0])
+		if err != nil {
+			logs.CtxErrorf(ctx, "[packIntelligenceData] failed id %v, type %d , name %s, err: %v", searchResp.Data[0].ID, searchResp.Data[0].Type, searchResp.Data[0].GetName(), err)
+		} else {
+			lock.Lock()
+			intelligenceDataList[0] = info
+			lock.Unlock()
+		}
+	}
+	err = tasks.Wait()
+	if err != nil {
+		return nil, err
+	}
 	filterDataList := make([]*intelligence.IntelligenceData, 0)
 	for _, data := range intelligenceDataList {
 		if data != nil {

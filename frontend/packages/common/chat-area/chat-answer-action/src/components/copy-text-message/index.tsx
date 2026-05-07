@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type ComponentProps, useState, type PropsWithChildren } from 'react';
 
 import copy from 'copy-to-clipboard';
@@ -34,29 +34,41 @@ import { useTooltipTrigger } from '../../hooks/use-tooltip-trigger';
 type CopyTextMessageProps = Omit<
   ComponentProps<typeof IconButton>,
   'icon' | 'iconSize' | 'onClick'
->;
+> & {
+  isMustGroupLastAnswerMessage?: boolean;
+  isUseExternalContent?: boolean;
+  externalContent?: string;
+};
 
 export const CopyTextMessage: React.FC<
   PropsWithChildren<CopyTextMessageProps>
-> = ({ className, ...props }) => {
+> = ({
+  className,
+  isMustGroupLastAnswerMessage = true,
+  isUseExternalContent = false,
+  externalContent,
+  ...props
+}) => {
   const { reporter } = useChatArea();
   const { message, meta } = useMessageBoxContext();
 
-  const { content } = message;
+  const content = isUseExternalContent
+    ? externalContent || ''
+    : message.content;
 
   const [isCopySuccessful, setIsCopySuccessful] = useState<boolean>(false);
   const trigger = useTooltipTrigger('hover');
 
-  // 单位s
+  // Unit s
   const COUNT_DOWN_TIME = 3;
 
-  // 单位s转化为ms的倍数
+  // The unit's is converted to a multiple of ms
   const TIMES = 1000;
 
   const handleCopy = () => {
     const resp = copy(content);
     if (resp) {
-      // 复制成功
+      // Copy successful
       setIsCopySuccessful(true);
       setTimeout(() => setIsCopySuccessful(false), COUNT_DOWN_TIME * TIMES);
       Toast.success({
@@ -68,7 +80,7 @@ export const CopyTextMessage: React.FC<
         eventName: ReportEventNames.CopyTextMessage,
       });
     } else {
-      // 复制失败
+      // Copy failed
       Toast.warning({
         content: I18n.t('copy_failed'),
         showClose: false,
@@ -87,7 +99,7 @@ export const CopyTextMessage: React.FC<
     return null;
   }
 
-  if (!meta.isGroupLastAnswerMessage) {
+  if (!meta.isGroupLastAnswerMessage && isMustGroupLastAnswerMessage) {
     return null;
   }
 

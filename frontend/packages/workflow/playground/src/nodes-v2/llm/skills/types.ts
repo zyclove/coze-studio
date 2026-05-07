@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import { type IDataSetInfo } from '@coze-data/knowledge-modal-base';
 import {
   type FCPluginSetting,
   type APIParameter,
   type FCWorkflowSetting,
 } from '@coze-arch/idl/workflow_api';
+import { type PluginFrom } from '@coze-arch/idl/playground_api';
 
 export enum SkillType {
   Plugin = 'plugin',
@@ -41,10 +42,10 @@ export type WorkflowFCSetting = FCWorkflowSetting;
 export interface BoundWorkflowItem {
   plugin_id: string;
   workflow_id: string;
-  // 如果是project  填project version，资源库填plugin version
+  // If it is a project, fill in the project version, and fill in the plugin version in the resource library.
   plugin_version: string;
   workflow_version: string;
-  // 如果是project 就填true，资源库 false
+  // Fill in true if it is project, false for resource library
   is_draft: boolean;
   fc_setting?: WorkflowFCSetting;
 }
@@ -53,11 +54,12 @@ export interface BoundPluginItem {
   plugin_id: string;
   api_id: string;
   api_name: string;
-  // 如果是project  填project version，资源库填plugin version
+  // If it is a project, fill in the project version, and fill in the plugin version in the resource library.
   plugin_version: string;
-  // 如果是project 就填true，资源库 false
+  // Fill in true if it is project, false for resource library
   is_draft: boolean;
   fc_setting?: PluginFCSetting;
+  plugin_from?: PluginFrom;
 }
 
 export interface BoundKnowledgeItem {

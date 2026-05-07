@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/internal/dal/model"
@@ -52,15 +53,13 @@ func (dao *KnowledgeDocumentSliceDAO) Update(ctx context.Context, slice *model.K
 }
 
 func (dao *KnowledgeDocumentSliceDAO) BatchCreate(ctx context.Context, slices []*model.KnowledgeDocumentSlice) error {
-	return dao.Query.KnowledgeDocumentSlice.WithContext(ctx).CreateInBatches(slices, 100)
+	return dao.Query.KnowledgeDocumentSlice.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(slices, 100)
 }
 
 func (dao *KnowledgeDocumentSliceDAO) BatchSetStatus(ctx context.Context, ids []int64, status int32, reason string) error {
 	s := dao.Query.KnowledgeDocumentSlice
 	updates := map[string]any{s.Status.ColumnName().String(): status}
-	if reason != "" {
-		updates[s.FailReason.ColumnName().String()] = reason
-	}
+	updates[s.FailReason.ColumnName().String()] = reason
 	updates[s.UpdatedAt.ColumnName().String()] = time.Now().UnixMilli()
 	_, err := s.WithContext(ctx).Where(s.ID.In(ids...)).Updates(updates)
 	return err
@@ -122,7 +121,7 @@ func (dao *KnowledgeDocumentSliceDAO) listBatch(ctx context.Context, knowledgeID
 	pos []*model.KnowledgeDocumentSlice, hasMore bool, err error) {
 
 	if batchSize <= 0 {
-		batchSize = 100 // 默认批量大小
+		batchSize = 100 // Default batch size
 	}
 
 	do, err := dao.listDo(ctx, knowledgeID, documentID)
@@ -163,7 +162,7 @@ func (dao *KnowledgeDocumentSliceDAO) GetDocumentSliceIDs(ctx context.Context, d
 	if len(docIDs) == 0 {
 		return nil, errors.New("empty document ids")
 	}
-	// doc可能会有很多slice，所以批量处理
+	// Doc may have many slices, so batch processing
 	sliceIDs = make([]int64, 0)
 	var mu sync.Mutex
 	errGroup, ctx := errgroup.WithContext(ctx)
@@ -238,8 +237,11 @@ func (dao *KnowledgeDocumentSliceDAO) FindSliceByCondition(ctx context.Context, 
 
 	if opts.PageSize != 0 {
 		do = do.Limit(int(opts.PageSize))
-		do = do.Offset(int(opts.Sequence)).Order(s.Sequence.Asc())
 	}
+	if opts.Offset != 0 {
+		do = do.Offset(int(opts.Offset))
+	}
+	do = do.Order(s.Sequence.Asc())
 	if opts.NotEmpty != nil {
 		if ptr.From(opts.NotEmpty) {
 			do = do.Where(s.Content.Neq(""))
@@ -320,4 +322,45 @@ func (dao *KnowledgeDocumentSliceDAO) GetLastSequence(ctx context.Context, docum
 			errorx.KVf("reason", "[GetLastSequence] resp is nil, document_id=%v", documentID))
 	}
 	return resp.Sequence, nil
+}
+
+func (dao *KnowledgeDocumentSliceDAO) ListPhotoSlice(ctx context.Context, opts *entity.WherePhotoSliceOpt) ([]*model.KnowledgeDocumentSlice, int64, error) {
+	s := dao.Query.KnowledgeDocumentSlice
+	do := s.WithContext(ctx)
+	if opts.KnowledgeID != 0 {
+		do = do.Where(s.KnowledgeID.Eq(opts.KnowledgeID))
+	}
+	if len(opts.DocumentIDs) != 0 {
+		do = do.Where(s.DocumentID.In(opts.DocumentIDs...))
+	}
+	if ptr.From(opts.Limit) != 0 {
+		do = do.Limit(int(ptr.From(opts.Limit)))
+	}
+	if ptr.From(opts.Offset) != 0 {
+		do = do.Offset(int(ptr.From(opts.Offset)))
+	}
+	if opts.HasCaption != nil {
+		if ptr.From(opts.HasCaption) {
+			do = do.Where(s.Content.Neq(""))
+		} else {
+			do = do.Where(s.Content.Eq(""))
+		}
+	}
+	do = do.Order(s.UpdatedAt.Desc())
+	pos, err := do.Find()
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := do.Limit(-1).Offset(-1).Count()
+	if err != nil {
+		return nil, 0, err
+	}
+	return pos, total, nil
+}
+
+func (dao *KnowledgeDocumentSliceDAO) BatchCreateWithTX(ctx context.Context, tx *gorm.DB, slices []*model.KnowledgeDocumentSlice) error {
+	if len(slices) == 0 {
+		return nil
+	}
+	return tx.WithContext(ctx).Debug().Model(&model.KnowledgeDocumentSlice{}).CreateInBatches(slices, 100).Error
 }

@@ -82,6 +82,9 @@ func (dao *KnowledgeDocumentDAO) FindDocumentByCondition(ctx context.Context, op
 	if opts.CreatorID > 0 {
 		do = do.Where(k.CreatorID.Eq(opts.CreatorID))
 	}
+	if opts.Name != nil && *opts.Name != "" {
+		do = do.Where(k.Name.Like("%" + *opts.Name + "%"))
+	}
 	if len(opts.IDs) > 0 {
 		do = do.Where(k.ID.In(opts.IDs...))
 	}
@@ -132,12 +135,12 @@ func (dao *KnowledgeDocumentDAO) DeleteDocuments(ctx context.Context, ids []int6
 			tx.Commit()
 		}
 	}()
-	// 删除document
+	// Delete document
 	err = tx.WithContext(ctx).Model(&model.KnowledgeDocument{}).Where("id in ?", ids).Delete(&model.KnowledgeDocument{}).Error
 	if err != nil {
 		return err
 	}
-	// 删除document_slice
+	// Delete document_slice
 	err = tx.WithContext(ctx).Model(&model.KnowledgeDocumentSlice{}).Where("document_id in?", ids).Delete(&model.KnowledgeDocumentSlice{}).Error
 	if err != nil {
 		return err

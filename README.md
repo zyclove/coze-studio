@@ -37,7 +37,6 @@ The backend of Coze Studio is developed using Golang, the frontend uses React + 
 
 ## Quickstart
 Learn how to obtain and deploy the open-source version of Coze Studio, quickly build projects, and experience Coze Studio's open-source version.
-> Detailed steps and deployment requirements can be found in [Quickstart](https://github.com/coze-dev/coze-studio/wiki/2.-Quickstart).
 
 Environment requirements:
 
@@ -51,32 +50,25 @@ Deployment steps:
    # Clone code
    git clone https://github.com/coze-dev/coze-studio.git
    ```
+2. Deploy and start the service. When deploying and starting Coze Studio for the first time, it may take a while to retrieve images and build local images. Please be patient. If you see the message "Container coze-server Started," it means the Coze Studio service has started successfully.
 
-2. Configure the model.
-   1. Copy the template files of the doubao-seed-1.6 model from the template directory and paste them into the configuration file directory.
-      ```Bash
-      cd coze-studio
-      # Copy model configuration template
-      cp backend/conf/model/template/model_template_ark_doubao-seed-1.6.yaml backend/conf/model/ark_doubao-seed-1.6.yaml
-      ```
-
-   2. Modify the template file in the configuration file directory.
-      1. Enter the directory `backend/conf/model`. Open the file `ark_doubao-seed-1.6.yaml`.
-      2. Set the fields `id`, `meta.conn_config.api_key`, `meta.conn_config.model`, and save the file.
-         * **id**: The model ID in Coze Studio, defined by the developers themselves, must be a non-zero integer and globally unique. Do not modify the model ID after the model goes online.
-         * **meta.conn_config.api_key**: The API Key for the model service, which in this example is the API Key for Volcengine Ark. Refer to [Retrieve Volcengine Ark API Key](https://www.volcengine.com/docs/82379/1541594) for the acquisition method.
-         * **meta.conn_config.model**: The model ID of the model service, which in this example is the Endpoint ID of the Volcengine Ark doubao-seed-1.6 model access point. For retrieval methods, refer to [Retrieve Endpoint ID](https://www.volcengine.com/docs/82379/1099522).
-3. Deploy and start the service.
-   When deploying and starting Coze Studio for the first time, it may take a while to retrieve images and build local images. Please be patient. During deployment, you will see the following log information. If you see the message "Container coze-server Started," it means the Coze Studio service has started successfully.
    ```Bash
-   # Start the service
-   cd docker
-   cp .env.example .env
-   docker compose --profile "*" up -d
+   cd coze-studio
+   # start service
+   # for macOS or Linux
+   make web  
+   # for windows
+   cp ./docker/.env.example ./docker/.env
+   docker compose -f ./docker/docker-compose.yml up
    ```
-   After the service starts, it is normal for the `coze-elasticsearch-setup` , `coze-minio-setup` , `coze-mysql-setup-init-sql` , and `coze-mysql-setup-schema` containers to be in an exited state (exit 0). For common startup failure issues, **please refer to the [FAQ](https://github.com/coze-dev/coze-studio/wiki/9.-FAQ)**.
-4. After starting the service, you can open Coze Studio by accessing `http://localhost:8888/` through your browser.
 
+   For common startup failure issues, **please refer to the [FAQ](https://github.com/coze-dev/coze-studio/wiki/9.-FAQ)**.
+3.	Register an account by visiting `http://localhost:8888/sign`, entering your username and password, and clicking the Register button.
+4.	Configure the model at `http://localhost:8888/admin/#model-management` by adding a new model. (The image version must be greater than or equal to 0.5.0.)
+5.	Visit Coze Studio at `http://localhost:8888/`.
+
+> [!WARNING]
+> If you want to deploy Coze Studio in a public network environment, it is recommended to assess security risks before you begin, and take corresponding protection measures. Possible security risks include account registration functions, Python execution environments in workflow code nodes, Coze Server listening address configurations, SSRF (Server - Side Request Forgery), and some horizontal privilege escalations in APIs.  For more details, refer to [Quickstart](https://github.com/coze-dev/coze-studio/wiki/2.-Quickstart#security-risks-in-public-networks).
 
 ## Developer Guide
 
@@ -84,7 +76,7 @@ Deployment steps:
    * [Model Configuration](https://github.com/coze-dev/coze-studio/wiki/3.-Model-configuration): Before deploying the open-source version of Coze Studio, you must configure the model service. Otherwise, you cannot select models when building agents, workflows, and apps.
    * [Plugin Configuration](https://github.com/coze-dev/coze-studio/wiki/4.-Plugin-Configuration): To use official plugins from the plugin store, you must first configure the plugins and add the authentication keys for third-party services.
    * [Basic Component Configuration](https://github.com/coze-dev/coze-studio/wiki/5.-Basic-component-configuration): Learn how to configure components such as image uploaders to use functions like image uploading in Coze Studio .
-* [API Reference](https://github.com/coze-dev/coze-studio/wiki/6.-API-Reference): Unlike the commercial edition, the open-source version of Coze Studio only supports personal access token (PAT) authentication and supports APIs related to chat and workflows.
+* [API Reference](https://github.com/coze-dev/coze-studio/wiki/6.-API-Reference): The Coze Studio Community Edition API and Chat SDK are authenticated using Personal Access Token, providing APIs for conversations and workflows.
 * [Development Guidelines](https://github.com/coze-dev/coze-studio/wiki/7.-Development-Standards):
    * [Project Architecture](https://github.com/coze-dev/coze-studio/wiki/7.-Development-Standards#project-architecture): Learn about the technical architecture and core components of the open-source version of Coze Studio.
    * [Code Development and Testing](https://github.com/coze-dev/coze-studio/wiki/7.-Development-Standards#code-development-and-testing): Learn how to perform secondary development and testing based on the open-source version of Coze Studio.
@@ -106,7 +98,7 @@ This project uses the Apache 2.0 license. For details, please refer to the [LICE
 ## Community contributions
 We welcome community contributions. For contribution guidelines, please refer to [CONTRIBUTING](https://github.com/coze-dev/coze-studio/blob/main/CONTRIBUTING.md) and [Code of conduct](https://github.com/coze-dev/coze-studio/blob/main/CODE_OF_CONDUCT.md). We look forward to your contributions!
 ## Security and privacy
-If you discover potential security issues in the project, or believe you may have found a security issue, please notify the ByteDance security team through our [security center](https://security.bytedance.com/src) or [vulnerability reporting mailbox](https://code.byted.org/flowdevops/cozeloop/blob/feat/release/sec@bytedance.com).
+If you discover potential security issues in the project, or believe you may have found a security issue, please notify the ByteDance security team through our [security center](https://security.bytedance.com/src) or [vulnerability reporting email](mailto:sec@bytedance.com).
 Please **do not** create public GitHub Issues.
 ## Join Community
 

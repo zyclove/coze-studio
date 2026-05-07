@@ -19,6 +19,7 @@ package consts
 import "time"
 
 const (
+	RunMode            = "RUN_MODE"
 	MySQLDsn           = "MYSQL_DSN"
 	RedisAddr          = "REDIS_ADDR"
 	VeImageXAK         = "VE_IMAGEX_AK"
@@ -31,6 +32,7 @@ const (
 	FileUploadComponentType        = "FILE_UPLOAD_COMPONENT_TYPE"
 	FileUploadComponentTypeImagex  = "imagex"
 	FileUploadComponentTypeStorage = "storage"
+	StorageUploadHTTPScheme        = "STORAGE_UPLOAD_HTTP_SCHEME"
 
 	StorageType        = "STORAGE_TYPE"
 	MinIOAK            = "MINIO_AK"
@@ -43,7 +45,11 @@ const (
 	TOSSecretKey       = "TOS_SECRET_KEY"
 	TOSRegion          = "TOS_REGION"
 	TOSEndpoint        = "TOS_ENDPOINT"
-	TOSBucketEndpoint  = "TOS_BUCKET_ENDPOINT"
+	S3AccessKey        = "S3_ACCESS_KEY"
+	S3SecretKey        = "S3_SECRET_KEY"
+	S3Region           = "S3_REGION"
+	S3Endpoint         = "S3_ENDPOINT"
+	S3BucketEndpoint   = "S3_BUCKET_ENDPOINT"
 
 	HostKeyInCtx          = "HOST_KEY_IN_CTX"
 	RequestSchemeKeyInCtx = "REQUEST_SCHEME_IN_CTX"
@@ -52,6 +58,14 @@ const (
 	MQServer                 = "MQ_NAME_SERVER"
 	RMQSecretKey             = "RMQ_SECRET_KEY"
 	RMQAccessKey             = "RMQ_ACCESS_KEY"
+	PulsarServiceURL         = "PULSAR_SERVICE_URL"
+	PulsarJWTToken           = "PULSAR_JWT_TOKEN"
+	NATSJWTToken             = "NATS_JWT_TOKEN"
+	NATSNKeySeed             = "NATS_NKEY_SEED"
+	NATSUsername             = "NATS_USERNAME"
+	NATSPassword             = "NATS_PASSWORD"
+	NATSToken                = "NATS_TOKEN"
+	NATSUseJetStream         = "NATS_USE_JETSTREAM"
 	RMQTopicApp              = "opencoze_search_app"
 	RMQTopicResource         = "opencoze_search_resource"
 	RMQTopicKnowledge        = "opencoze_knowledge"
@@ -76,6 +90,14 @@ const (
 	CodeRunnerNodeModulesDir = "CODE_RUNNER_NODE_MODULES_DIR"
 	CodeRunnerTimeoutSeconds = "CODE_RUNNER_TIMEOUT_SECONDS"
 	CodeRunnerMemoryLimitMB  = "CODE_RUNNER_MEMORY_LIMIT_MB"
+
+	UseSSL      = "USE_SSL"
+	SSLCertFile = "SSL_CERT_FILE"
+	SSLKeyFile  = "SSL_KEY_FILE"
+)
+
+const (
+	CtxLogIDKey = "log-id"
 )
 
 const (
@@ -106,4 +128,19 @@ const (
 const (
 	ApplyUploadActionURI = "/api/common/upload/apply_upload_action"
 	UploadURI            = "/api/common/upload"
+)
+
+const (
+	DisableUserRegistration = "DISABLE_USER_REGISTRATION"
+	AllowRegistrationEmail  = "ALLOW_REGISTRATION_EMAIL"
+)
+
+const (
+	PublishInfoKeyPrefix = "agent:publish:last"
+)
+
+const (
+	BaseConfigNameSpace  = "kv_config_ns"
+	KnowledgeConfigSpace = "kv_knowledge_ns"
+	ModelConfigSpace     = "kv_model_ns"
 )

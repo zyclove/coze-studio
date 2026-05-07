@@ -19,12 +19,13 @@ package service
 import (
 	"context"
 
-	"github.com/go-resty/resty/v2"
 	"gorm.io/gorm"
 
+	"github.com/coze-dev/coze-studio/backend/domain/plugin/internal/dal"
 	"github.com/coze-dev/coze-studio/backend/domain/plugin/repository"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/idgen"
-	"github.com/coze-dev/coze-studio/backend/infra/contract/storage"
+	"github.com/coze-dev/coze-studio/backend/infra/cache"
+	"github.com/coze-dev/coze-studio/backend/infra/idgen"
+	"github.com/coze-dev/coze-studio/backend/infra/storage"
 	"github.com/coze-dev/coze-studio/backend/pkg/safego"
 )
 
@@ -32,6 +33,7 @@ type Components struct {
 	IDGen      idgen.IDGenerator
 	DB         *gorm.DB
 	OSS        storage.Storage
+	CacheCli   cache.Cmdable
 	PluginRepo repository.PluginRepository
 	ToolRepo   repository.ToolRepository
 	OAuthRepo  repository.OAuthRepository
@@ -44,7 +46,7 @@ func NewService(components *Components) PluginService {
 		pluginRepo: components.PluginRepo,
 		toolRepo:   components.ToolRepo,
 		oauthRepo:  components.OAuthRepo,
-		httpCli:    resty.New(),
+		oauthCache: dal.NewOAuthCache(components.CacheCli),
 	}
 
 	initOnce.Do(func() {
@@ -63,5 +65,5 @@ type pluginServiceImpl struct {
 	pluginRepo repository.PluginRepository
 	toolRepo   repository.ToolRepository
 	oauthRepo  repository.OAuthRepository
-	httpCli    *resty.Client
+	oauthCache *dal.OAuthCache
 }

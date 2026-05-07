@@ -40,8 +40,8 @@ func (s *promptService) CreatePromptResource(ctx context.Context, p *entity.Prom
 	return s.Repo.CreatePromptResource(ctx, p)
 }
 
-func (s *promptService) UpdatePromptResource(ctx context.Context, p *entity.PromptResource) error {
-	return s.Repo.UpdatePromptResource(ctx, p)
+func (s *promptService) UpdatePromptResource(ctx context.Context, promptID int64, name, description, promptText *string) error {
+	return s.Repo.UpdatePromptResource(ctx, promptID, name, description, promptText)
 }
 
 func (s *promptService) GetPromptResource(ctx context.Context, promptID int64) (*entity.PromptResource, error) {
@@ -87,12 +87,12 @@ func searchPromptResourceList(ctx context.Context, resource []*entity.PromptReso
 		if promptResource == nil {
 			continue
 		}
-		// 名称匹配
+		// name match
 		if strings.Contains(strings.ToLower(promptResource.Name), strings.ToLower(keyword)) {
 			retVal = append(retVal, promptResource)
 			continue
 		}
-		// 正文匹配
+		// Body Match
 		if strings.Contains(strings.ToLower(promptResource.PromptText), strings.ToLower(keyword)) {
 			retVal = append(retVal, promptResource)
 		}
